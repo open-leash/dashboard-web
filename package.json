@@ -1,0 +1,34 @@
+{
+  "name": "@openleash/dashboard-web",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    "./DashboardPage": "./app/DashboardPage.tsx",
+    "./components/DashboardShell": "./components/DashboardShell.tsx",
+    "./components/EnterpriseOnboarding": "./components/EnterpriseOnboarding.tsx",
+    "./components/TenantEntry": "./components/TenantEntry.tsx",
+    "./components/TenantLogin": "./components/TenantLogin.tsx",
+    "./components/CloudGoogleCallback": "./components/CloudGoogleCallback.tsx",
+    "./lib/api-client": "./lib/api-client.ts",
+    "./openleash.css": "./public/openleash.css"
+  },
+  "scripts": {
+    "dev": "rm -rf .next && next dev -p ${OPENLEASH_DASHBOARD_PORT:-9300}",
+    "build": "next build",
+    "start": "next start -p ${OPENLEASH_DASHBOARD_PORT:-9300}",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@openleash/shared": "0.1.0",
+    "lucide-react": "^0.468.0",
+    "next": "^15.1.8",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "typescript": "^5.8.3"
+  }
+}
