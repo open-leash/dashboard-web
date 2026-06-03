@@ -1700,11 +1700,12 @@ function TriggerAuditRow({ trigger, basePath }: { trigger: TriggerItem; basePath
   const policy = trigger.triggered_policies?.[0];
   const evidence = trigger.triggered_policies?.flatMap((item) => evidenceItems(item.evidence)).slice(0, 2) ?? [];
   const state = trigger.resolution ?? trigger.decision;
+  const title = triggerDisplayTitle(trigger);
   return (
     <Link className="triggerAuditRow" href={routeHref(basePath, `/triggers/${trigger.id}`)}>
       <AgentLogo name={trigger.agent_name} fallback={initials(trigger.agent_name).slice(0, 1)} size="large" />
       <div className="audit-main">
-        <div className="audit-title">{policy?.policy_name ?? trigger.summary}</div>
+        <div className="audit-title">{title}</div>
         <div className="audit-meta">
           {trigger.user_name ?? "Unknown user"} · {trigger.agent_name} · {projectTag(trigger.project_path) ?? "No project"} · {relativeTime(trigger.created_at)}
         </div>
@@ -1714,6 +1715,29 @@ function TriggerAuditRow({ trigger, basePath }: { trigger: TriggerItem; basePath
       <ChevronRight size={18} className="muted" />
     </Link>
   );
+}
+
+function triggerDisplayTitle(trigger: TriggerItem) {
+  const text = [
+    trigger.summary,
+    trigger.question,
+    trigger.prompt,
+    trigger.event_name,
+    trigger.tool_name,
+    ...(trigger.triggered_policies ?? []).flatMap((policy) => [
+      policy.policy_name,
+      policy.explanation,
+      ...evidenceItems(policy.evidence)
+    ])
+  ].filter(Boolean).join("\n").toLowerCase();
+  const secretText = /credential|secret|\.env|token|private key|kubeconfig|\.npmrc|id_rsa|id_ed25519|password/.test(text);
+  if (secretText) {
+    if (/\b(read|cat|open|show|print|search|find|grep|scan|dump|copy|view|access)\b/.test(text)) return "Secret file access";
+    if (/\b(write|create|edit|touch|generate|save|commit|push)\b/.test(text)) return "Secret file change";
+    return "Secret access";
+  }
+  const classified = classifyHighlight(trigger);
+  return classified?.label ?? trigger.triggered_policies?.[0]?.policy_name ?? trigger.summary;
 }
 
 function TriggerDetailPage({ trigger, basePath, mode }: { trigger: TriggerDetail["trigger"]; basePath: string; mode: DashboardMode }) {
