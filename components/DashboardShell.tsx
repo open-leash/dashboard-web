@@ -389,6 +389,7 @@ export function DashboardShell({
   triggerSearchParams,
   logsSearchParams,
   usageSearchParams,
+  skillsSearchParams,
   settingsSearchParams,
   externalAgents,
   mcpServers,
@@ -409,6 +410,7 @@ export function DashboardShell({
   triggerSearchParams?: Record<string, string | undefined>;
   logsSearchParams?: Record<string, string | undefined>;
   usageSearchParams?: Record<string, string | undefined>;
+  skillsSearchParams?: Record<string, string | undefined>;
   settingsSearchParams?: Record<string, string | undefined>;
   externalAgents?: ExternalAgentsData | null;
   mcpServers?: McpServersData | null;
@@ -451,7 +453,7 @@ export function DashboardShell({
         {tab === "agents" && <AgentsPage agents={agents} recent={recent} mode={dashboardMode} basePath={basePath} />}
         {tab === "external-agents" && <ExternalAgentsPage apiUrl={apiUrl} data={externalAgents} />}
         {tab === "mcps" && <McpServersPage apiUrl={apiUrl} data={mcpServers} mode={dashboardMode} />}
-        {tab === "skills" && <SkillsPage data={skills} mode={dashboardMode} />}
+        {tab === "skills" && <SkillsPage data={skills} mode={dashboardMode} basePath={basePath} filters={skillsSearchParams ?? {}} />}
         {tab === "policies" && <PoliciesPage apiUrl={apiUrl} policies={policies} mode={dashboardMode} tenantSlug={tenantSlug} />}
         {tab === "tokens" && <TokensPage apiUrl={apiUrl} mode={dashboardMode} />}
         {tab === "deployment" && <DeploymentPage apiUrl={apiUrl} mode={dashboardMode} />}
@@ -1270,52 +1272,162 @@ function McpServersPage({ apiUrl, data, mode }: { apiUrl: string; data?: McpServ
   );
 }
 
-function SkillsPage({ data, mode }: { data?: SkillsData | null; mode: DashboardMode }) {
+function SkillsPage({ data, mode, basePath, filters }: { data?: SkillsData | null; mode: DashboardMode; basePath: string; filters: Record<string, string | undefined> }) {
   const skills = data?.skills ?? [];
   const personal = mode === "personal";
+  const selectedView = filters.view === "skills" ? "skills" : "users";
+  const query = (filters.q ?? "").trim();
+  const filteredSkills = filterSkills(skills, query);
+  const skillHref = (view: "users" | "skills") => {
+    const params = new URLSearchParams();
+    if (view !== "users") params.set("view", view);
+    if (query) params.set("q", query);
+    const suffix = params.toString();
+    return `${dashboardHref(basePath, "/skills")}${suffix ? `?${suffix}` : ""}` as any;
+  };
+  const userGroups = groupSkillsByUser(filteredSkills);
+  const skillGroups = groupSkillsByName(filteredSkills);
   return (
     <>
       <Topbar />
       <div className="page-head">
         <div>
           <h1>Skills</h1>
-          <p className="sub">{personal ? "Agent skills detected on this computer." : "Agent skills loaded by users, projects, and local agents."}</p>
+          <p className="sub">{personal ? "Protected agent skills on this computer." : "Protected skills across users and local agents."}</p>
         </div>
       </div>
       <div className="divider" />
-      <div className="cards">
-        {skills.map((skill) => {
-          const reasons = Array.isArray(skill.reasons) ? skill.reasons : [];
-          return (
-            <article className="agent-card" key={skill.id}>
-              <div className="agent-head">
-                <AgentLogo name={skill.agent_name} fallback={initials(skill.agent_name)} size="small" />
+      <div className="skillToolbar">
+        <div className="usageViewSwitch">
+          <Link className={selectedView === "users" ? "active" : ""} href={skillHref("users")}>Users</Link>
+          <Link className={selectedView === "skills" ? "active" : ""} href={skillHref("skills")}>Skills</Link>
+        </div>
+        <form className="skillSearch" action={dashboardHref(basePath, "/skills")}>
+          <input type="hidden" name="view" value={selectedView} />
+          <Search size={17} />
+          <input name="q" defaultValue={query} placeholder="Search skills, users, agents..." />
+        </form>
+      </div>
+
+      <div className="skillList">
+        {selectedView === "users" && userGroups.map((group) => (
+          <article className="skillUserRow" key={group.key}>
+            <span className="avatar-sm" style={{ background: avatarFor(group.name).bg, color: avatarFor(group.name).fg }}>{initials(group.name)}</span>
+            <div className="skillRowMain">
+              <div className="skillRowHead">
                 <div>
-                  <div className="agent-name">{skill.skill_name}</div>
-                  <div className="agent-vendor">{skill.agent_name} · {skill.scope} · {skill.user_name ?? "Unknown user"}</div>
+                  <strong>{group.name}</strong>
+                  <span>{group.email || `${group.skills.length} protected skills`}</span>
                 </div>
+                <em>{group.skills.length} skills</em>
               </div>
-              <div className="agent-stats">
-                <div className="agent-stat"><div className="v">{skill.risk_score}</div><div className="l">Risk</div></div>
-                <div className="agent-stat"><div className="v">{reasons.length}</div><div className="l">Reasons</div></div>
-                <div className="agent-stat"><div className="v">{skill.status}</div><div className="l">Status</div></div>
-              </div>
-              <div className="evidence-list externalList">
-                <span><strong>Project</strong>: {projectTag(skill.project_path ?? undefined) ?? "User-level"}</span>
-                <span><strong>Path</strong>: {skill.skill_path}</span>
-                {reasons.slice(0, 4).map((reason, index) => (
-                  <span key={`${skill.id}-${index}`}><strong>{reason.reason}</strong>{reason.quote ? `: ${reason.quote}` : ""}</span>
+              <div className="skillAgentGroups">
+                {group.agents.map((agent) => (
+                  <div className="skillAgentLine" key={`${group.key}-${agent.agentName}`}>
+                    <AgentLogo name={agent.agentName} fallback={initials(agent.agentName).slice(0, 1)} size="small" />
+                    <b>{agent.agentName}</b>
+                    <span>{agent.skills.slice(0, 7).map((skill) => skill.skill_name).join(", ")}{agent.skills.length > 7 ? ` +${agent.skills.length - 7}` : ""}</span>
+                  </div>
                 ))}
-                <span><strong>Updated</strong>: {relativeTime(skill.updated_at)}</span>
               </div>
-              <span className={`tag ${skill.status === "suspicious" ? "blocked" : "allowed"}`}><span className="dot" />{skill.status}</span>
-            </article>
-          );
-        })}
-        {skills.length === 0 && <Empty text="No agent skills have been detected yet." />}
+            </div>
+          </article>
+        ))}
+
+        {selectedView === "skills" && skillGroups.map((group) => (
+          <article className="skillItemRow" key={group.key}>
+            <AgentLogo name={group.agentName} fallback={initials(group.agentName).slice(0, 1)} size="small" />
+            <div className="skillRowMain">
+              <div className="skillRowHead">
+                <div>
+                  <strong>{group.name}</strong>
+                  <span>{group.agentName} · {group.projectLabel}</span>
+                </div>
+                <em>{skillStatusLabel(group.status)}</em>
+              </div>
+              <div className="skillPeople">
+                {group.users.slice(0, 8).map((user) => (
+                  <span key={`${group.key}-${user.name}`} className="skillPerson" title={user.email || user.name}>
+                    <span className="avatar-xs" style={{ background: avatarFor(user.name).bg, color: avatarFor(user.name).fg }}>{initials(user.name)}</span>
+                    {user.name}
+                  </span>
+                ))}
+                {group.users.length > 8 && <span className="skillMore">+{group.users.length - 8}</span>}
+              </div>
+            </div>
+          </article>
+        ))}
+
+        {filteredSkills.length === 0 && <Empty text={query ? "No skills match this search." : "No protected skills detected yet."} />}
       </div>
     </>
   );
+}
+
+type SkillRow = SkillsData["skills"][number];
+
+function filterSkills(skills: SkillRow[], query: string) {
+  if (!query) return skills;
+  const needle = query.toLowerCase();
+  return skills.filter((skill) => [
+    skill.skill_name,
+    skill.agent_name,
+    skill.user_name,
+    skill.user_email,
+    skill.project_path,
+    skill.skill_path,
+    skill.scope
+  ].filter(Boolean).join("\n").toLowerCase().includes(needle));
+}
+
+function groupSkillsByUser(skills: SkillRow[]) {
+  const groups = new Map<string, { key: string; name: string; email: string; skills: SkillRow[]; agents: Array<{ agentName: string; skills: SkillRow[] }> }>();
+  for (const skill of skills) {
+    const name = skill.user_name || skill.user_email || "Unknown user";
+    const key = (skill.user_email || name).toLowerCase();
+    const group = groups.get(key) ?? { key, name, email: skill.user_email ?? "", skills: [], agents: [] };
+    group.skills.push(skill);
+    groups.set(key, group);
+  }
+  for (const group of groups.values()) {
+    const byAgent = new Map<string, SkillRow[]>();
+    for (const skill of group.skills) byAgent.set(skill.agent_name, [...(byAgent.get(skill.agent_name) ?? []), skill]);
+    group.agents = Array.from(byAgent.entries()).map(([agentName, agentSkills]) => ({ agentName, skills: sortSkills(agentSkills) }));
+    group.skills = sortSkills(group.skills);
+  }
+  return Array.from(groups.values()).sort((a, b) => b.skills.length - a.skills.length || a.name.localeCompare(b.name));
+}
+
+function groupSkillsByName(skills: SkillRow[]) {
+  const groups = new Map<string, { key: string; name: string; agentName: string; projectLabel: string; status: string; users: Array<{ name: string; email: string }>; updatedAt: string }>();
+  for (const skill of skills) {
+    const key = `${skill.agent_name}:${skill.skill_name}:${projectTag(skill.project_path ?? undefined) ?? "user"}`.toLowerCase();
+    const group = groups.get(key) ?? {
+      key,
+      name: skill.skill_name,
+      agentName: skill.agent_name,
+      projectLabel: projectTag(skill.project_path ?? undefined) ?? "User-level",
+      status: skill.status,
+      users: [],
+      updatedAt: skill.updated_at
+    };
+    const userName = skill.user_name || skill.user_email || "Unknown user";
+    if (!group.users.some((user) => user.name === userName && user.email === (skill.user_email ?? ""))) {
+      group.users.push({ name: userName, email: skill.user_email ?? "" });
+    }
+    if (new Date(skill.updated_at).getTime() > new Date(group.updatedAt).getTime()) group.updatedAt = skill.updated_at;
+    if (skill.status === "suspicious") group.status = skill.status;
+    groups.set(key, group);
+  }
+  return Array.from(groups.values()).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+}
+
+function sortSkills(skills: SkillRow[]) {
+  return [...skills].sort((a, b) => a.skill_name.localeCompare(b.skill_name));
+}
+
+function skillStatusLabel(status: string) {
+  return status === "suspicious" ? "review" : "protected";
 }
 
 function PoliciesPage({ apiUrl, policies, mode, tenantSlug }: { apiUrl: string; policies: Overview["policies"]; mode: DashboardMode; tenantSlug?: string }) {

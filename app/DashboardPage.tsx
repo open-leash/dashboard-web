@@ -122,6 +122,7 @@ export async function DashboardPage({
   triggerSearchParams,
   logsSearchParams,
   usageSearchParams,
+  skillsSearchParams,
   settingsSearchParams,
   tenantSlug,
   extensionTabs = []
@@ -132,6 +133,7 @@ export async function DashboardPage({
   triggerSearchParams?: Record<string, string | undefined>;
   logsSearchParams?: Record<string, string | undefined>;
   usageSearchParams?: Record<string, string | undefined>;
+  skillsSearchParams?: Record<string, string | undefined>;
   settingsSearchParams?: Record<string, string | undefined>;
   tenantSlug?: string;
   extensionTabs?: DashboardExtensionTab[];
@@ -162,6 +164,7 @@ export async function DashboardPage({
       triggerSearchParams={triggerSearchParams}
       logsSearchParams={logsSearchParams}
       usageSearchParams={usageSearchParams}
+      skillsSearchParams={skillsSearchParams}
       settingsSearchParams={settingsSearchParams}
       externalAgents={externalAgents}
       mcpServers={mcpServers}
