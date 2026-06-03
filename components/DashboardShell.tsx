@@ -599,7 +599,6 @@ function OverviewPage({
   mode: DashboardMode;
   basePath: string;
 }) {
-  const enabledPolicies = policies.filter((policy) => policy.enabled);
   const latest = recent.filter(isTriggerEvent).slice(0, 10);
   const topAgents = aggregateAgents(agents).sort((a, b) => b.installs - a.installs || b.users - a.users).slice(0, 5);
   const topUsers = usageByEmployee(usageSessions).slice(0, 5);
@@ -689,12 +688,12 @@ function OverviewPage({
       </div>
 
       <div>
-        {(topPolicies.length ? topPolicies : enabledPolicies.slice(0, 5)).map((policy, index) => (
+        {topPolicies.map((policy, index) => (
           <Link key={policy.id} className="row-card policy-row" href={`${routeHref(basePath, "/triggers")}?policy=${encodeURIComponent(policy.name)}` as any}>
             <div className="row-ico">{iconForPolicy(policy, index)}</div>
             <div className="row-copy">
               <div className="row-title">{compactRule(policy.name)}</div>
-              <div className="row-sub">{policy.last_triggered_at ? `Last ${relativeTime(policy.last_triggered_at)}${policy.last_agent_name ? ` by ${policy.last_agent_name}` : ""}` : "No trigger history yet"}</div>
+              <div className="row-sub">Last {policy.last_triggered_at ? `${relativeTime(policy.last_triggered_at)}${policy.last_agent_name ? ` by ${policy.last_agent_name}` : ""}` : "recently"}</div>
             </div>
             <div className="blocked-count">
               {formatCount(policy.trigger_count)}
@@ -703,7 +702,7 @@ function OverviewPage({
             <ChevronRight size={18} className="muted" />
           </Link>
         ))}
-        {enabledPolicies.length === 0 && <Empty text="No policies configured." />}
+        {topPolicies.length === 0 && <Empty text="No policies have triggered yet." />}
       </div>
     </>
   );
