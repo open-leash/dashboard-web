@@ -641,7 +641,6 @@ function OverviewPage({
                 <strong>{agent.displayName}</strong>
                 <span>{agent.users} user{agent.users === 1 ? "" : "s"} · {agent.installs} install{agent.installs === 1 ? "" : "s"}</span>
               </div>
-              <em>{agent.protectedPercent}%</em>
             </div>
           ))}
           {topAgents.length === 0 && <Empty text="No agents have checked in yet." />}
@@ -971,7 +970,6 @@ function AgentsPage({ agents, recent, mode, basePath }: { agents: Overview["agen
               <div className="agent-stats">
                 <div className="agent-stat"><div className="v">{agent.users}</div><div className="l">{personal ? "Profiles" : "Users"}</div></div>
                 <div className="agent-stat"><div className="v">{agent.installs}</div><div className="l">Installs</div></div>
-                <div className="agent-stat"><div className="v">{agent.protectedPercent}%</div><div className="l">Protected</div></div>
               </div>
               <div className="agent-event-list">
                 {events.map((event) => (
@@ -984,7 +982,6 @@ function AgentsPage({ agents, recent, mode, basePath }: { agents: Overview["agen
                 ))}
                 {events.length === 0 && <span className="muted-small">No notable actions captured yet.</span>}
               </div>
-              <div className="bar-track"><div className="bar-fill" style={{ width: `${agent.protectedPercent}%` }} /></div>
               <span className="tag allowed"><span className="dot" />blocking</span>
             </article>
           );
@@ -2133,7 +2130,6 @@ function aggregateAgents(agents: Overview["agents"]) {
     version?: string;
     users: number;
     installs: number;
-    protectedPercent: number;
     userNames: Set<string>;
     hostnames: Set<string>;
     sessions: NonNullable<Overview["agents"][number]["sessions"]>;
@@ -2147,7 +2143,6 @@ function aggregateAgents(agents: Overview["agents"]) {
       version: agent.version,
       users: 0,
       installs: 0,
-      protectedPercent: 0,
       userNames: new Set<string>(),
       hostnames: new Set<string>(),
       sessions: []
@@ -2162,7 +2157,6 @@ function aggregateAgents(agents: Overview["agents"]) {
   return Array.from(grouped.values()).map((agent) => ({
     ...agent,
     users: agent.userNames.size,
-    protectedPercent: agent.installs > 0 ? 96 : 0,
     sessions: agent.sessions.sort((a, b) => new Date(b.last_activity_at ?? 0).getTime() - new Date(a.last_activity_at ?? 0).getTime())
   }));
 }
