@@ -432,7 +432,7 @@ export function DashboardShell({
         {tab === "overview" && needsIdentityProvider && <IdentityProviderNotice basePath={basePath} />}
         {tab === "overview" && needsSetup && onboardingData && <OrganizationSetupPanel apiUrl={apiUrl} onboardingData={onboardingData} tenantDomain={tenantDomain} basePath={basePath} organizationSlug={tenantSlug} />}
         {tab === "overview" && <OverviewPage metrics={metrics} recent={recent} agents={agents} policies={policies} users={users} usageSessions={usageSessions} organizationName={onboardingData?.organization.name} mode={dashboardMode} basePath={basePath} />}
-        {tab === "usage" && <UsagePage sessions={usageSessions} users={users} mode={dashboardMode} basePath={basePath} range={usageSearchParams?.range} />}
+        {tab === "usage" && <UsagePage sessions={usageSessions} users={users} mode={dashboardMode} basePath={basePath} range={usageSearchParams?.range} view={usageSearchParams?.view} />}
         {(tab === "setup" || tab === "settings") && <SettingsPage apiUrl={apiUrl} onboardingData={onboardingData ?? null} tenantDomain={tenantDomain} tenantSlug={tenantSlug} mode={dashboardMode} settingsItem={settingsSearchParams?.item} />}
         {tab === "triggers" && <TriggersPage triggers={triggerData?.triggers ?? []} detail={triggerDetail?.trigger} filters={triggerSearchParams ?? {}} mode={dashboardMode} basePath={basePath} />}
         {tab === "logs" && <LogsPage logs={logsData?.logs ?? []} detail={logsData?.logDetail?.log} filters={logsSearchParams ?? {}} mode={dashboardMode} basePath={basePath} />}
@@ -1042,14 +1042,24 @@ function sentenceTitle(value: string) {
   return clean.charAt(0).toUpperCase() + clean.slice(1);
 }
 
-function UsagePage({ sessions, users, mode, basePath, range }: { sessions: UsageSession[]; users: UserRow[]; mode: DashboardMode; basePath: string; range?: string }) {
+function UsagePage({ sessions, users, mode, basePath, range, view }: { sessions: UsageSession[]; users: UserRow[]; mode: DashboardMode; basePath: string; range?: string; view?: string }) {
   const personal = mode === "personal";
   const now = Date.now();
+  const selectedView = view === "sessions" ? "sessions" : "employees";
+  const usageHref = (next: { range?: string; view?: "employees" | "sessions" }) => {
+    const nextRange = next.range ?? selectedRange.label.toLowerCase();
+    const nextView = next.view ?? selectedView;
+    const params = new URLSearchParams();
+    if (nextRange !== "24h") params.set("range", nextRange);
+    if (nextView !== "employees") params.set("view", nextView);
+    const query = params.toString();
+    return `${dashboardHref(basePath, "/usage")}${query ? `?${query}` : ""}` as any;
+  };
   const ranges = [
-    { label: "24h", href: dashboardHref(basePath, "/usage"), cutoff: now - 24 * 60 * 60 * 1000 },
-    { label: "7d", href: `${dashboardHref(basePath, "/usage")}?range=7d`, cutoff: now - 7 * 24 * 60 * 60 * 1000 },
-    { label: "30d", href: `${dashboardHref(basePath, "/usage")}?range=30d`, cutoff: now - 30 * 24 * 60 * 60 * 1000 },
-    { label: "All", href: `${dashboardHref(basePath, "/usage")}?range=all`, cutoff: 0 }
+    { label: "24h", value: "24h", cutoff: now - 24 * 60 * 60 * 1000 },
+    { label: "7d", value: "7d", cutoff: now - 7 * 24 * 60 * 60 * 1000 },
+    { label: "30d", value: "30d", cutoff: now - 30 * 24 * 60 * 60 * 1000 },
+    { label: "All", value: "all", cutoff: 0 }
   ];
   const selectedRange = ranges.find((item) => item.label.toLowerCase() === String(range || "24h").toLowerCase()) ?? ranges[0];
   const selectedCutoff = selectedRange.cutoff;
@@ -1069,7 +1079,7 @@ function UsagePage({ sessions, users, mode, basePath, range }: { sessions: Usage
           <p className="sub">{personal ? "Your agent sessions and time spent." : "Agent time, sessions, and employee activity across this OpenLeash environment."}</p>
         </div>
         <div className="usageRange">
-          {ranges.map((item) => <Link key={item.label} className={item.label === selectedRange.label ? "active" : ""} href={item.href as any}>{item.label}</Link>)}
+          {ranges.map((item) => <Link key={item.label} className={item.label === selectedRange.label ? "active" : ""} href={usageHref({ range: item.value })}>{item.label}</Link>)}
         </div>
       </div>
       <div className="divider" />
@@ -1080,8 +1090,13 @@ function UsagePage({ sessions, users, mode, basePath, range }: { sessions: Usage
         <Stat icon={<Shield />} label="Approvals" value={String(approvals)} />
       </div>
 
-      <div className="usageGrid">
-        <section className="usagePanel">
+      <div className="usageViewSwitch">
+        <Link className={selectedView === "employees" ? "active" : ""} href={usageHref({ view: "employees" })}>Employees</Link>
+        <Link className={selectedView === "sessions" ? "active" : ""} href={usageHref({ view: "sessions" })}>Sessions</Link>
+      </div>
+
+      <div className="usageGrid single">
+        {selectedView === "employees" && <section className="usagePanel">
           <div className="card-title"><h3>Employees</h3><div className="right"><span className="sync-pill">{users.length} managed</span></div></div>
           <div className="usageTable">
             <div className="usageTableHead"><span>Employee</span><span>Sessions</span><span>Time</span><span>Subagents</span><span>Last seen</span></div>
@@ -1096,9 +1111,9 @@ function UsagePage({ sessions, users, mode, basePath, range }: { sessions: Usage
             ))}
             {employeeRows.length === 0 && <Empty text="No usage in this window." />}
           </div>
-        </section>
+        </section>}
 
-        <section className="usagePanel">
+        {selectedView === "sessions" && <section className="usagePanel">
           <div className="card-title"><h3>Sessions</h3><div className="right"><span className="sync-pill">latest {Math.min(scoped.length, 100)}</span></div></div>
           <div className="usageSessionList">
             {scoped.slice(0, 100).map((session) => (
@@ -1116,7 +1131,7 @@ function UsagePage({ sessions, users, mode, basePath, range }: { sessions: Usage
             ))}
             {scoped.length === 0 && <Empty text="No sessions captured for this range." />}
           </div>
-        </section>
+        </section>}
       </div>
     </>
   );
