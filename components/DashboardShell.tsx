@@ -610,7 +610,7 @@ function OverviewPage({
   basePath: string;
 }) {
   const latest = recent.filter(isTriggerEvent).slice(0, 10);
-  const topAgents = overviewAgents(agents).slice(0, 7);
+  const topAgents = overviewAgents(agents, users).slice(0, 7);
   const topUsers = usageByEmployee(usageSessions).slice(0, 5);
   const topPolicies = policies
     .filter((policy) => numeric(policy.trigger_count) > 0)
@@ -2209,9 +2209,33 @@ function aggregateAgents(agents: Overview["agents"]) {
   }));
 }
 
-function overviewAgents(agents: Overview["agents"]) {
+function overviewAgents(agents: Overview["agents"], users: UserRow[]) {
   const actual = aggregateAgents(agents);
   const byKey = new Map(actual.map((agent) => [agent.key, agent]));
+  for (const user of users) {
+    const detectedAgents = Array.isArray(user.agents) ? user.agents : [];
+    const userName = user.display_name || user.email || "Unknown user";
+    const hostnames = Array.isArray(user.hostnames) ? user.hostnames.filter(Boolean) : [];
+    const endpointCount = Math.max(hostnames.length, numeric(user.endpoint_count));
+    for (const agentName of detectedAgents) {
+      const key = agentProductKey({ kind: agentName, display_name: agentName } as Overview["agents"][number]);
+      const current = byKey.get(key) ?? {
+        key,
+        displayName: agentProductName({ kind: agentName, display_name: agentName } as Overview["agents"][number]),
+        kind: agentProductKind({ kind: agentName, display_name: agentName } as Overview["agents"][number]),
+        users: 0,
+        installs: 0,
+        userNames: new Set<string>(),
+        hostnames: new Set<string>(),
+        sessions: []
+      };
+      current.userNames.add(userName);
+      for (const hostname of hostnames) current.hostnames.add(hostname);
+      current.installs = Math.max(current.installs, endpointCount || current.hostnames.size || 1);
+      current.users = current.userNames.size;
+      byKey.set(key, current);
+    }
+  }
   for (const product of supportedAgentProducts) {
     if (byKey.has(product.key)) continue;
     byKey.set(product.key, {
@@ -2224,6 +2248,10 @@ function overviewAgents(agents: Overview["agents"]) {
     });
   }
   return Array.from(byKey.values()).sort((a, b) => {
+    a.users = a.userNames.size;
+    b.users = b.userNames.size;
+    a.installs = Math.max(a.installs, a.hostnames.size);
+    b.installs = Math.max(b.installs, b.hostnames.size);
     const activityDelta = b.installs - a.installs || b.users - a.users;
     if (activityDelta !== 0) return activityDelta;
     return supportedAgentOrder(a.key) - supportedAgentOrder(b.key);
