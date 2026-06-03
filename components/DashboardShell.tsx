@@ -345,6 +345,16 @@ const agentPalette = [
   { bg: "#7a5af8", fg: "white", letter: "A" }
 ];
 
+const supportedAgentProducts = [
+  { key: "claude-code", displayName: "Claude Code", kind: "claude-code" },
+  { key: "openai-codex", displayName: "OpenAI Codex", kind: "codex" },
+  { key: "cline", displayName: "Cline", kind: "cline" },
+  { key: "opencode", displayName: "opencode", kind: "opencode" },
+  { key: "cursor", displayName: "Cursor", kind: "cursor" },
+  { key: "gemini", displayName: "Google Gemini CLI", kind: "gemini" },
+  { key: "antigravity", displayName: "Antigravity", kind: "antigravity" }
+];
+
 const avatarPalette = [
   { bg: "#fbe6c1", fg: "#8a5a1d" },
   { bg: "#dbe5fb", fg: "#2a44a6" },
@@ -600,7 +610,7 @@ function OverviewPage({
   basePath: string;
 }) {
   const latest = recent.filter(isTriggerEvent).slice(0, 10);
-  const topAgents = aggregateAgents(agents).sort((a, b) => b.installs - a.installs || b.users - a.users).slice(0, 5);
+  const topAgents = overviewAgents(agents).slice(0, 7);
   const topUsers = usageByEmployee(usageSessions).slice(0, 5);
   const topPolicies = policies
     .filter((policy) => numeric(policy.trigger_count) > 0)
@@ -2199,11 +2209,40 @@ function aggregateAgents(agents: Overview["agents"]) {
   }));
 }
 
+function overviewAgents(agents: Overview["agents"]) {
+  const actual = aggregateAgents(agents);
+  const byKey = new Map(actual.map((agent) => [agent.key, agent]));
+  for (const product of supportedAgentProducts) {
+    if (byKey.has(product.key)) continue;
+    byKey.set(product.key, {
+      ...product,
+      users: 0,
+      installs: 0,
+      userNames: new Set<string>(),
+      hostnames: new Set<string>(),
+      sessions: []
+    });
+  }
+  return Array.from(byKey.values()).sort((a, b) => {
+    const activityDelta = b.installs - a.installs || b.users - a.users;
+    if (activityDelta !== 0) return activityDelta;
+    return supportedAgentOrder(a.key) - supportedAgentOrder(b.key);
+  });
+}
+
+function supportedAgentOrder(key: string) {
+  const index = supportedAgentProducts.findIndex((agent) => agent.key === key);
+  return index === -1 ? supportedAgentProducts.length : index;
+}
+
 function agentProductKey(agent: Overview["agents"][number]) {
   const text = `${agent.kind} ${agent.display_name}`.toLowerCase();
   if (text.includes("claude")) return "claude-code";
   if (text.includes("codex") || text.includes("openai")) return "openai-codex";
+  if (text.includes("cline")) return "cline";
+  if (text.includes("opencode") || text.includes("open code")) return "opencode";
   if (text.includes("cursor")) return "cursor";
+  if (text.includes("antigravity")) return "antigravity";
   if (text.includes("gemini")) return "gemini";
   if (text.includes("windsurf")) return "windsurf";
   if (text.includes("aider")) return "aider";
@@ -2214,8 +2253,11 @@ function agentProductName(agent: Overview["agents"][number]) {
   const key = agentProductKey(agent);
   if (key === "claude-code") return "Claude Code";
   if (key === "openai-codex") return "OpenAI Codex";
+  if (key === "cline") return "Cline";
+  if (key === "opencode") return "opencode";
   if (key === "cursor") return "Cursor";
   if (key === "gemini") return "Gemini";
+  if (key === "antigravity") return "Antigravity";
   if (key === "windsurf") return "Windsurf";
   if (key === "aider") return "Aider";
   return agent.display_name;
@@ -2225,6 +2267,7 @@ function agentProductKind(agent: Overview["agents"][number]) {
   const key = agentProductKey(agent);
   if (key === "claude-code") return "claude-code";
   if (key === "openai-codex") return "codex";
+  if (key === "opencode") return "opencode";
   return agent.kind;
 }
 
