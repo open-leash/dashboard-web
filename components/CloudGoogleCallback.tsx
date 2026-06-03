@@ -45,10 +45,9 @@ export function CloudGoogleCallback({ apiUrl }: { apiUrl: string }) {
         if (payload.user) localStorage.setItem("openleash_dashboard_user", JSON.stringify(payload.user));
         if (payload.organization) localStorage.setItem("openleash_dashboard_organization", JSON.stringify(payload.organization));
         const slug = payload.organization?.slug || "openleash-cloud";
-        const setupCompleted = payload.organization?.setupCompleted ?? payload.organization?.setup_completed ?? false;
-        if (!setupCompleted) document.cookie = `openleash_onboarding_org=${encodeURIComponent(slug)}; Path=/; SameSite=Lax; Max-Age=86400`;
+        document.cookie = `openleash_onboarding_org=${encodeURIComponent(slug)}; Path=/; SameSite=Lax; Max-Age=86400`;
         const next = safeLocalPath(params.get("next"));
-        const destination = next || (setupCompleted ? `/${encodeURIComponent(slug)}` : "/onboarding");
+        const destination = next || `/${encodeURIComponent(slug)}`;
         if (params.get("desktop") === "1") {
           const desktop = new URL("openleash://auth/callback");
           desktop.searchParams.set("dashboard_token", token);

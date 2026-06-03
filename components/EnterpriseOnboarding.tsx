@@ -48,7 +48,7 @@ export type OnboardingData = {
     last_error?: string | null;
   } | null;
   groups: Array<{ id: string; name: string; member_count: string | number; idp_provider?: string }>;
-  users: Array<{ id: string; email: string; display_name: string; department?: string; title?: string; status?: string }>;
+  users: Array<{ id: string; email: string; display_name: string; role?: string; department?: string; title?: string; status?: string }>;
   roles: Array<{ id: string; role: string; user_id?: string | null; group_id?: string | null; user_name?: string | null; group_name?: string | null }>;
   deploymentTokens: Array<{ id: string; label: string; mdm?: string | null; tenant_url: string; created_at: string; last_used_at?: string | null }>;
 };
@@ -211,8 +211,14 @@ export function EnterpriseOnboarding({
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ organizationSlug: onboardingSlug, provider, credentials })
     });
-    const payload = await response.json();
-    setMessage(payload.message ?? payload.error ?? "Sync finished.");
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.success === false) {
+      setMessage(payload.error ?? payload.message ?? "Identity sync failed.");
+      await reload();
+      setBusy(null);
+      return;
+    }
+    setMessage(payload.message ?? "Identity sync completed.");
     await reload();
     setStep(isPrivate ? 5 : 4);
     setBusy(null);
@@ -327,7 +333,12 @@ export function EnterpriseOnboarding({
   function goToStep(nextStep: number) {
     if (identityRequiredForStep && (nextStep === importStep || nextStep === rolesStep)) {
       setMessage("Connect an identity provider before importing users or assigning dashboard roles.");
-      setStep(deployStep);
+      setStep(reviewStep);
+      return;
+    }
+    if (identityRequiredForStep && nextStep === deployStep) {
+      setMessage("MDM deployment skipped because no identity provider is connected yet.");
+      setStep(reviewStep);
       return;
     }
     setStep(nextStep);
@@ -335,8 +346,8 @@ export function EnterpriseOnboarding({
 
   function skipIdentity() {
     setIdentitySkipped(true);
-    setMessage("Identity setup skipped for now. You can connect an identity provider from the dashboard after activation.");
-    setStep(deployStep);
+    setMessage("Identity and MDM deployment skipped for now. You can connect identity and configure deployment from the dashboard after activation.");
+    setStep(reviewStep);
   }
 
   return (
@@ -547,7 +558,7 @@ export function EnterpriseOnboarding({
             <div className="setupNotice danger">Connect an identity provider before importing users and groups.</div>
             <div className="setupActions">
               <button type="button" onClick={() => goToStep(identityStep)}>Connect identity</button>
-              <button type="button" className="secondary" onClick={() => goToStep(deployStep)}>Skip to deploy</button>
+              <button type="button" className="secondary" onClick={() => goToStep(reviewStep)}>Skip to review</button>
             </div>
           </section>
         ) : (
@@ -571,7 +582,7 @@ export function EnterpriseOnboarding({
             <div className="setupNotice danger">Dashboard roles use synced users and groups. Connect identity before assigning roles.</div>
             <div className="setupActions">
               <button type="button" onClick={() => goToStep(identityStep)}>Connect identity</button>
-              <button type="button" className="secondary" onClick={() => goToStep(deployStep)}>Skip to deploy</button>
+              <button type="button" className="secondary" onClick={() => goToStep(reviewStep)}>Skip to review</button>
             </div>
           </section>
         ) : (
@@ -984,15 +995,33 @@ function PingIcon() {
 
 export function IdentityManager({ apiUrl, initialData }: { apiUrl: string; initialData: OnboardingData | null }) {
   const [data, setData] = useState(initialData);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+
   async function sync() {
-    await apiFetch(`${apiUrl}/admin/onboarding/sync-identity`, "adminOnboardingWrite", {
+    setBusy(true);
+    setMessage("");
+    const response = await apiFetch(`${apiUrl}/admin/onboarding/sync-identity`, "adminOnboardingWrite", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ provider: data?.idp?.provider ?? "azure", credentials: {} })
     });
-    const response = await apiFetch(`${apiUrl}/admin/onboarding`, "adminOnboardingRead");
-    if (response.ok) setData(await response.json());
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.success === false) {
+      setMessage(payload.error ?? payload.message ?? "Identity sync failed.");
+      const reload = await apiFetch(`${apiUrl}/admin/onboarding`, "adminOnboardingRead");
+      if (reload.ok) setData(await reload.json());
+      setBusy(false);
+      return;
+    }
+    setMessage(payload.message ?? "Identity sync completed.");
+    const reload = await apiFetch(`${apiUrl}/admin/onboarding`, "adminOnboardingRead");
+    if (reload.ok) setData(await reload.json());
+    setBusy(false);
   }
+
+  const canSync = Boolean(data?.idp?.provider);
+
   return (
     <div className="identityManager">
       <div className="identityOps">
@@ -1000,8 +1029,11 @@ export function IdentityManager({ apiUrl, initialData }: { apiUrl: string; initi
         <Metric label="Users" value={data?.users.length ?? 0} />
         <Metric label="Groups" value={data?.groups.length ?? 0} />
         <Metric label="Last sync" value={data?.idp?.last_sync_at ? new Date(data.idp.last_sync_at).toLocaleString() : "Never"} />
-        <button type="button" onClick={sync}><RefreshCw size={16} /> Sync now</button>
+        <button type="button" onClick={sync} disabled={!canSync || busy}><RefreshCw size={16} /> {busy ? "Syncing" : "Sync now"}</button>
       </div>
+      {message && <div className="setupNotice danger">{message}</div>}
+      {data?.idp?.last_error && !message && <div className="setupNotice danger">{data.idp.last_error}</div>}
+      {!canSync && <div className="setupNotice">Connect a real identity provider before syncing users and groups.</div>}
       <div className="identityColumns">
         <section>
           <h3>Groups</h3>
@@ -1022,5 +1054,212 @@ export function IdentityManager({ apiUrl, initialData }: { apiUrl: string; initi
         </section>
       </div>
     </div>
+  );
+}
+
+export function IdentityProviderSetup({ apiUrl, initialData, organizationSlug }: { apiUrl: string; initialData: OnboardingData | null; organizationSlug?: string }) {
+  const [provider, setProvider] = useState(initialData?.idp?.provider === "azure_ad" ? "azure" : initialData?.idp?.provider ?? "azure");
+  const [credentials, setCredentials] = useState<Record<string, string>>({
+    tenantId: "",
+    clientId: "",
+    clientSecret: "",
+    domain: "",
+    apiToken: "",
+    oktaClientId: "",
+    oktaPrivateKey: "",
+    oktaPublicKey: "",
+    privateKey: "",
+    serviceAccountJson: "",
+    adminEmail: ""
+  });
+  const [busy, setBusy] = useState<"test" | "sync" | null>(null);
+  const [message, setMessage] = useState("");
+  const [oktaExpandedStep, setOktaExpandedStep] = useState<number | null>(1);
+  const [oktaKeyMode, setOktaKeyMode] = useState<"generate" | "upload">("generate");
+  const [oktaGenerating, setOktaGenerating] = useState(false);
+  const [oktaUploadError, setOktaUploadError] = useState("");
+
+  function onboardingUrl(path = "") {
+    const query = organizationSlug ? `?organizationSlug=${encodeURIComponent(organizationSlug)}` : "";
+    return `${apiUrl}/admin/onboarding${path}${query}`;
+  }
+
+  async function testIdp() {
+    setBusy("test");
+    setMessage("");
+    const response = await apiFetch(onboardingUrl("/test-idp"), "adminOnboardingWrite", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ organizationSlug, provider, credentials })
+    });
+    const payload = await response.json().catch(() => ({}));
+    setMessage(payload.message ?? payload.error ?? (response.ok ? "Connection looks good." : "Connection failed."));
+    setBusy(null);
+  }
+
+  async function connectAndSync() {
+    setBusy("sync");
+    setMessage("Connecting identity provider...");
+    const response = await apiFetch(onboardingUrl("/sync-identity"), "adminOnboardingWrite", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ organizationSlug, provider, credentials })
+    });
+    const payload = await response.json().catch(() => ({}));
+    setBusy(null);
+    if (!response.ok || payload.success === false) {
+      setMessage(payload.error ?? payload.message ?? "Identity sync failed.");
+      return;
+    }
+    setMessage(payload.message ?? "Identity provider connected.");
+    window.location.reload();
+  }
+
+  async function generateOktaKeys() {
+    setOktaGenerating(true);
+    setOktaUploadError("");
+    try {
+      const keyPair = await generateRSAKeyPair();
+      const privateKey = formatJWKForStorage(keyPair.privateKey);
+      const publicKey = formatJWKForStorage(keyPair.publicKey);
+      setCredentials({ ...credentials, oktaPrivateKey: privateKey, oktaPublicKey: publicKey, privateKey });
+      downloadJWK(keyPair.privateKey, "openleash-okta-private-key.json");
+    } catch (error) {
+      setOktaUploadError(error instanceof Error ? error.message : "Failed to generate Okta keys.");
+    } finally {
+      setOktaGenerating(false);
+    }
+  }
+
+  async function uploadOktaPrivateKey(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setOktaUploadError("");
+    try {
+      const privateKey = JSON.parse(await file.text()) as OktaJwk;
+      if (!privateKey.kty || !privateKey.d || !privateKey.n || !privateKey.e) {
+        throw new Error("Invalid private key. Upload a JWK JSON file with kty, d, n, and e fields.");
+      }
+      const stored = formatJWKForStorage(privateKey);
+      setCredentials({ ...credentials, oktaPrivateKey: stored, privateKey: stored });
+    } catch (error) {
+      setOktaUploadError(error instanceof Error ? error.message : "Invalid private key JSON file.");
+    }
+  }
+
+  function pasteOktaPublicKey(value: string) {
+    setOktaUploadError("");
+    if (!value.trim()) {
+      setCredentials({ ...credentials, oktaPublicKey: "" });
+      return;
+    }
+    try {
+      const publicKey = JSON.parse(value) as OktaJwk;
+      if (!publicKey.kty || !publicKey.n || !publicKey.e) {
+        throw new Error("Invalid public key. Paste a JWK with kty, n, and e fields.");
+      }
+      setCredentials({ ...credentials, oktaPublicKey: formatJWKForStorage(publicKey) });
+    } catch (error) {
+      setOktaUploadError(error instanceof Error ? error.message : "Invalid public key JSON.");
+    }
+  }
+
+  return (
+    <section className="setupPanel" id="identity-provider">
+      <div className="setupPanelHead"><h3>Identity provider</h3>{initialData?.idp?.enabled ? <span className="tag allowed"><span className="dot" />connected</span> : null}</div>
+      <div className="providerGrid">
+        {providers.map((item) => (
+          <button type="button" className={provider === item.id || provider === item.id.replace("azure", "azure_ad") ? "providerCard active" : "providerCard"} key={item.id} onClick={() => setProvider(item.id)}>
+            <span className="providerIcon"><ProviderIcon icon={item.icon} /></span>
+            <strong>{item.name}</strong>
+            <span>{item.detail}</span>
+            {item.popular && <em>Popular</em>}
+          </button>
+        ))}
+      </div>
+      <div className="setupFields">
+        {provider === "azure" && (
+          <>
+            <div className="wide"><EntraSetupGuide /></div>
+            <label>Tenant ID<input placeholder="00000000-0000-0000-0000-000000000000" value={credentials.tenantId} onChange={(event) => setCredentials({ ...credentials, tenantId: event.target.value })} /></label>
+            <label>Client ID<input placeholder="Application client ID" value={credentials.clientId} onChange={(event) => setCredentials({ ...credentials, clientId: event.target.value })} /></label>
+            <label>Client secret<input placeholder="Secret value, not secret ID" type="password" value={credentials.clientSecret} onChange={(event) => setCredentials({ ...credentials, clientSecret: event.target.value })} /></label>
+          </>
+        )}
+        {provider === "okta" && (
+          <>
+            <div className="wide"><OktaSetupGuide expandedStep={oktaExpandedStep} onToggle={(stepNumber) => setOktaExpandedStep(oktaExpandedStep === stepNumber ? null : stepNumber)} /></div>
+            <div className="wide oktaNeedBox">
+              <h4><CheckCircle2 size={18} /> What OpenLeash needs from Okta</h4>
+              <div>
+                <span><strong>Okta domain</strong><small>Example: https://yourcompany.okta.com</small></span>
+                <span><strong>Client ID</strong><small>From the API Services app General tab</small></span>
+                <span><strong>Public key</strong><small>Generated here, then pasted into Okta</small></span>
+              </div>
+              <p>OpenLeash uses private key JWT. The public key goes into Okta; the private key stays in OpenLeash and is used only to request read-only sync tokens.</p>
+            </div>
+            <div className="wide oktaKeyBox">
+              <div className="oktaKeyHead">
+                <div><h4><KeyRound size={18} /> Authentication keys</h4><p>Generate a secure RSA key pair or upload an existing JWK pair.</p></div>
+                <div className="segmented">
+                  <button type="button" className={oktaKeyMode === "generate" ? "active" : ""} onClick={() => setOktaKeyMode("generate")}><KeyRound size={15} /> Generate</button>
+                  <button type="button" className={oktaKeyMode === "upload" ? "active" : ""} onClick={() => setOktaKeyMode("upload")}><Upload size={15} /> Upload</button>
+                </div>
+              </div>
+              {oktaKeyMode === "generate" ? (
+                <div className="oktaKeyContent">
+                  {!credentials.oktaPrivateKey ? (
+                    <button type="button" className="oktaPrimary" onClick={generateOktaKeys} disabled={oktaGenerating}>
+                      <KeyRound size={16} /> {oktaGenerating ? "Generating keys..." : "Generate RSA key pair"}
+                    </button>
+                  ) : (
+                    <>
+                      <div className="oktaSuccess"><CheckCircle2 size={16} /> Keys generated. The private key was downloaded for backup.</div>
+                      <label className="oktaPublicKey">Public key to paste into Okta<textarea readOnly value={formatPublicKeyForDisplay(JSON.parse(credentials.oktaPublicKey))} onClick={(event) => event.currentTarget.select()} /></label>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="oktaKeyContent">
+                  <label>Private key JWK file<input type="file" accept=".json,application/json" onChange={uploadOktaPrivateKey} /></label>
+                  <label className="oktaPublicKey">Public key JWK<textarea placeholder='{"kty":"RSA","use":"sig","kid":"...","alg":"RS256","n":"...","e":"AQAB"}' onChange={(event) => pasteOktaPublicKey(event.target.value)} /></label>
+                </div>
+              )}
+              {oktaUploadError && <div className="oktaWarning"><AlertCircle size={16} /> {oktaUploadError}</div>}
+            </div>
+            <label>Okta domain<input placeholder="https://yourcompany.okta.com" value={credentials.domain} onChange={(event) => setCredentials({ ...credentials, domain: event.target.value })} /></label>
+            <label>Client ID<input placeholder="0oa1a2b3c4d5e6f7g8h9" value={credentials.oktaClientId || credentials.clientId} onChange={(event) => setCredentials({ ...credentials, oktaClientId: event.target.value, clientId: event.target.value })} /></label>
+          </>
+        )}
+        {provider === "google" && (
+          <>
+            <div className="wide"><GoogleWorkspaceSetupGuide /></div>
+            <label>Admin email<input placeholder="admin@company.com" value={credentials.adminEmail} onChange={(event) => setCredentials({ ...credentials, adminEmail: event.target.value })} /></label>
+            <label className="wide">Service account JSON<textarea placeholder='{"type":"service_account","project_id":"...","private_key":"...","client_email":"..."}' value={credentials.serviceAccountJson} onChange={(event) => setCredentials({ ...credentials, serviceAccountJson: event.target.value })} /></label>
+          </>
+        )}
+        {provider === "ping" && (
+          <>
+            <div className="wide"><PingSetupGuide /></div>
+            <label>Ping API URL<input placeholder="https://api.pingone.com" value={credentials.apiUrl} onChange={(event) => setCredentials({ ...credentials, apiUrl: event.target.value })} /></label>
+            <label>Access token<input placeholder="Bearer token or worker app token" value={credentials.accessToken} onChange={(event) => setCredentials({ ...credentials, accessToken: event.target.value })} /></label>
+            <label>Environment ID<input placeholder="PingOne environment ID" value={credentials.environmentId} onChange={(event) => setCredentials({ ...credentials, environmentId: event.target.value })} /></label>
+          </>
+        )}
+        {provider === "ldap" && (
+          <>
+            <div className="wide"><LdapSetupGuide /></div>
+            <label>LDAP host<input placeholder="ldaps://ad.company.com" value={credentials.apiUrl} onChange={(event) => setCredentials({ ...credentials, apiUrl: event.target.value, ldapHost: event.target.value })} /></label>
+            <label>Bind DN<input placeholder="CN=openleash-sync,OU=Service Accounts,DC=company,DC=com" value={credentials.accessToken} onChange={(event) => setCredentials({ ...credentials, accessToken: event.target.value, bindDn: event.target.value })} /></label>
+            <label>Base DN<input placeholder="DC=company,DC=com" value={credentials.environmentId} onChange={(event) => setCredentials({ ...credentials, environmentId: event.target.value, baseDn: event.target.value })} /></label>
+          </>
+        )}
+      </div>
+      {message && <div className={message.toLowerCase().includes("failed") || message.toLowerCase().includes("not configured") ? "setupNotice danger" : "setupNotice"}>{message}</div>}
+      <div className="setupActions">
+        <button type="button" onClick={testIdp} disabled={busy === "test"}>Test connection</button>
+        <button type="button" onClick={connectAndSync} disabled={busy === "sync"}>{busy === "sync" ? "Connecting" : "Connect identity provider"}</button>
+      </div>
+    </section>
   );
 }

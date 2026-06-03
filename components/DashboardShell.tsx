@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -20,7 +21,6 @@ import {
   KeyRound,
   Laptop,
   Lock,
-  Moon,
   Package,
   Search,
   Settings,
@@ -32,9 +32,11 @@ import {
 } from "lucide-react";
 import { PolicyManager } from "./PolicyManager";
 import { DeploymentTokenIssuer } from "./DeploymentTokenIssuer";
-import { TokenIssuer } from "./TokenIssuer";
-import { EnterpriseOnboarding, IdentityManager, type OnboardingData } from "./EnterpriseOnboarding";
+import { IdentityManager, type OnboardingData } from "./EnterpriseOnboarding";
+import { OrganizationSetupPanel } from "./OrganizationSetupPanel";
+import { LiveDate } from "./LiveDate";
 import { DashboardSignOutButton, DashboardUserChip } from "./DashboardAuth";
+import { DashboardSettingsPane, SettingsTree, TokensSettingsPanel } from "./DashboardSettings";
 
 export type Overview = {
   metrics: {
@@ -84,12 +86,15 @@ export type Overview = {
     endpoint_count?: string | number;
     agent_count?: string | number;
     last_seen_at?: string | null;
+    idp_provider?: string | null;
     agents?: string[];
     hostnames?: string[];
+    status?: string;
   }>;
   recent: Array<{
     id: string;
     decision: "allow" | "deny" | "ask";
+    resolution?: "allow" | "deny" | null;
     summary: string;
     question?: string;
     prompt?: string | null;
@@ -98,6 +103,7 @@ export type Overview = {
     tool_name?: string;
     project_path?: string;
     agent_name: string;
+    agent_kind?: string;
     hostname: string;
     user_name?: string;
     triggered_policies?: Array<{
@@ -260,6 +266,46 @@ export type SkillsData = {
   }>;
 };
 
+export type LogsData = {
+  logs: LogItem[];
+  logDetail?: { log: LogItem & { resolution_guidance?: string | null; model?: string | null } } | null;
+};
+
+type LogItem = {
+  id: string;
+  session_id: string;
+  event_name: string;
+  project_path?: string | null;
+  prompt?: string | null;
+  tool_name?: string | null;
+  payload?: unknown;
+  occurred_at: string;
+  created_at: string;
+  evaluation_id?: string | null;
+  decision?: "allow" | "deny" | "ask" | null;
+  resolution?: string | null;
+  summary?: string | null;
+  question?: string | null;
+  evaluated_at?: string | null;
+  agent_name?: string | null;
+  agent_kind?: string | null;
+  agent_version?: string | null;
+  hostname?: string | null;
+  platform?: string | null;
+  user_id?: string | null;
+  user_name?: string | null;
+  user_email?: string | null;
+  policy_results?: Array<{
+    policy_name: string;
+    status: string;
+    severity: string;
+    explanation: string;
+    question?: string | null;
+    evidence?: string[] | string;
+    created_at?: string;
+  }>;
+};
+
 export type ExternalAgentsData = {
   connectors: Array<{
     provider: string;
@@ -308,117 +354,20 @@ const avatarPalette = [
   { bg: "#d2eef6", fg: "#1c6a85" }
 ];
 
-const demoOverview: Overview = {
+const emptyOverview: Overview = {
   metrics: {
-    computers: "12",
-    agents: "9",
-    events: "7,244",
-    denied: "286",
-    questions: "71"
+    computers: "0",
+    agents: "0",
+    events: "0",
+    denied: "0",
+    questions: "0"
   },
-  agents: [
-    demoAgent("claude-code", "Claude Code", "IDE Agent", "Margaret Chen", "platform-mbp"),
-    demoAgent("claude-code-cli", "Claude Code CLI", "CLI Agent", "Jenny Wilson", "infra-01"),
-    demoAgent("cursor", "Cursor", "IDE Agent", "Floyd Miles", "payments-air"),
-    demoAgent("gemini", "Gemini", "IDE Agent", "Robert Fox", "identity-mbp"),
-    demoAgent("gemini-cli", "Gemini CLI", "CLI Agent", "Guy Hawkins", "growth-studio"),
-    demoAgent("codex", "Codex", "IDE Agent", "Theresa Webb", "security-mbp"),
-    demoAgent("codex-cli", "Codex CLI", "CLI Agent", "Esther Howard", "platform-mini"),
-    demoAgent("windsurf", "Windsurf", "IDE Agent", "Cody Fisher", "web-mbp"),
-    demoAgent("aider", "Aider", "CLI Agent", "Cameron Williamson", "billing-air")
-  ],
-  users: [
-    demoUser("u1", "Max Brin", "max.brin@northwind.example", "Engineering", "Platform", 1, 2, ["Claude Code", "OpenAI Codex"], "2m"),
-    demoUser("u2", "Margaret Chen", "margaret.chen@northwind.example", "Engineering", "Product Security", 1, 1, ["Cursor"], "8m"),
-    demoUser("u3", "Jenny Wilson", "jenny.wilson@northwind.example", "Infrastructure", "SRE", 1, 2, ["Claude Code", "Claude Code CLI"], "19m"),
-    demoUser("u4", "Floyd Miles", "floyd.miles@northwind.example", "Engineering", "Payments", 1, 1, ["Codex"], "34m"),
-    demoUser("u5", "Kristin Watson", "kristin.watson@northwind.example", "Data", "Analytics", 0, 0, [], "never"),
-    demoUser("u6", "Robert Fox", "robert.fox@northwind.example", "Engineering", "Identity", 0, 0, [], "never")
-  ],
-  recent: [
-    demoEvent("e1", "deny", "Guy Hawkins", "Claude Code", "AWS credentials", "~/.aws/credentials", 2),
-    demoEvent("e2", "allow", "Margaret Chen", "Cursor", "Secrets redacted", "src/config/stripe.ts", 5),
-    demoEvent("e3", "deny", "Cody Fisher", "Windsurf", "Unverified package", "npm install left-pad-clone", 11),
-    demoEvent("e4", "ask", "Kristin Watson", "Claude Code CLI", "Unknown domain", "curl https://paste.ee/...", 18),
-    demoEvent("e5", "deny", "Cameron Williamson", "Aider", ".env access", "~/projects/legacy/.env", 26),
-    demoEvent("e6", "ask", "Floyd Miles", "Codex", "Push to main", "git push origin main", 34),
-    demoEvent("e7", "ask", "Jenny Wilson", "Claude Code", "CI/CD change", ".github/workflows/deploy.yml", 47)
-  ],
-  policies: [
-    demoPolicy("p1", "AWS credentials access", "Prevent agents from reading ~/.aws/credentials, ~/.aws/config, or any file matching aws_*_key.", "medium"),
-    demoPolicy("p2", "SSH private keys", "Deny reads on ~/.ssh/id_*, *.pem and *.key files outside explicitly allowed project directories.", "medium"),
-    demoPolicy("p3", ".env outside root", "Disallow agents from reading .env, .env.local and .env.production outside the current workspace.", "medium"),
-    demoPolicy("p4", "Push main branches", "Any git push to main, master or release branches must be confirmed by the user.", "medium"),
-    demoPolicy("p5", "PII external endpoints", "Detect outbound network calls containing PII patterns to domains outside the allowlist.", "medium"),
-    demoPolicy("p6", "CI/CD configuration changes", "Edits to workflows and deployment pipelines require human review before commit.", "medium")
-  ]
+  agents: [],
+  users: [],
+  recent: [],
+  policies: [],
+  usage: { sessions: [] }
 };
-
-function demoAgent(id: string, displayName: string, kind: string, userName: string, hostname: string): Overview["agents"][number] {
-  return {
-    id,
-    kind,
-    display_name: displayName,
-    version: "managed",
-    hostname,
-    user_name: userName,
-    last_seen_at: new Date().toISOString()
-  };
-}
-
-function demoEvent(id: string, decision: "allow" | "deny" | "ask", userName: string, agentName: string, summary: string, path: string, minutesAgo: number): Overview["recent"][number] {
-  return {
-    id,
-    decision,
-    summary,
-    created_at: new Date(Date.now() - minutesAgo * 60000).toISOString(),
-    event_name: "policy.evaluate",
-    tool_name: path,
-    project_path: path,
-    agent_name: agentName,
-    hostname: "northwind.local",
-    user_name: userName
-  };
-}
-
-function demoPolicy(id: string, name: string, description: string, severity: string): Overview["policies"][number] {
-  return {
-    id,
-    name,
-    description,
-    severity,
-    natural_language_rule: description,
-    enabled: true
-  };
-}
-
-function demoUser(
-  id: string,
-  displayName: string,
-  email: string,
-  department: string,
-  role: string,
-  endpoints: number,
-  agents: number,
-  agentNames: string[],
-  lastSeen: string
-): NonNullable<Overview["users"]>[number] & { department?: string; hr_title?: string; lastSeenLabel?: string } {
-  return {
-    id,
-    display_name: displayName,
-    email,
-    role: role.toLowerCase().replace(/\s+/g, "-"),
-    created_at: new Date().toISOString(),
-    endpoint_count: endpoints,
-    agent_count: agents,
-    last_seen_at: lastSeen === "never" ? null : new Date(Date.now() - Number(lastSeen.replace(/\D/g, "") || 1) * 60000).toISOString(),
-    agents: agentNames,
-    hostnames: endpoints ? [`${displayName.split(" ")[0].toLowerCase()}-mbp`] : [],
-    department,
-    hr_title: role,
-    lastSeenLabel: lastSeen
-  };
-}
 
 export function DashboardShell({
   apiUrl,
@@ -426,8 +375,11 @@ export function DashboardShell({
   initialTab = "overview",
   triggerData,
   triggerDetail,
+  logsData,
   triggerSearchParams,
+  logsSearchParams,
   usageSearchParams,
+  settingsSearchParams,
   externalAgents,
   mcpServers,
   skills,
@@ -443,8 +395,11 @@ export function DashboardShell({
   initialTab?: DashboardTab;
   triggerData?: { triggers: TriggerItem[] } | null;
   triggerDetail?: TriggerDetail | null;
+  logsData?: LogsData | null;
   triggerSearchParams?: Record<string, string | undefined>;
+  logsSearchParams?: Record<string, string | undefined>;
   usageSearchParams?: Record<string, string | undefined>;
+  settingsSearchParams?: Record<string, string | undefined>;
   externalAgents?: ExternalAgentsData | null;
   mcpServers?: McpServersData | null;
   skills?: SkillsData | null;
@@ -456,14 +411,7 @@ export function DashboardShell({
   extensionTabs?: DashboardExtensionTab[];
 }) {
   const tab = initialTab;
-  if (onboardingData && !onboardingData.organization.setup_completed) {
-    return (
-      <main className="onboardingOnly">
-        <EnterpriseOnboarding apiUrl={apiUrl} initialData={onboardingData} deploymentMode={deploymentMode} tenantDomain={tenantDomain} organizationSlug={tenantSlug} />
-      </main>
-    );
-  }
-  const overview = data ?? demoOverview;
+  const overview = data ?? emptyOverview;
   const metrics = overview.metrics;
   const recent = overview.recent;
   const agents = overview.agents;
@@ -472,22 +420,25 @@ export function DashboardShell({
   const users = overview.users?.length ? overview.users : usersFromAgents(agents);
   const basePath = tenantSlug ? `/${tenantSlug}` : "";
   const personal = dashboardMode === "personal";
-  const needsIdentityProvider = !personal && Boolean(onboardingData?.organization.setup_completed) && !onboardingData?.idp?.enabled;
+  const needsSetup = !personal && Boolean(onboardingData) && organizationNeedsSetup(onboardingData);
+  const needsIdentityProvider = !personal && !needsSetup && !onboardingData?.idp?.enabled;
   const extensionContext = { apiUrl, basePath, tenantSlug, deploymentMode, dashboardMode, onboardingData };
   const activeExtension = extensionTabs.find((item) => item.id === tab);
 
   return (
     <div className={personal ? "app personalDashboard" : "app"}>
-      <Sidebar tab={tab} agentsCount={agents.length} usersCount={users.length} basePath={basePath} mode={dashboardMode} extensionTabs={extensionTabs} />
+      <Sidebar tab={tab} agentsCount={agents.length} usersCount={users.length} basePath={basePath} mode={dashboardMode} extensionTabs={extensionTabs} settingsItem={settingsSearchParams?.item} />
       <main className="main">
-        {needsIdentityProvider && <IdentityProviderNotice basePath={basePath} />}
-        {tab === "overview" && <OverviewPage metrics={metrics} recent={recent} agents={agents} policies={policies} usersCount={users.length} organizationName={onboardingData?.organization.name} mode={dashboardMode} basePath={basePath} />}
+        {tab === "overview" && needsIdentityProvider && <IdentityProviderNotice basePath={basePath} />}
+        {tab === "overview" && needsSetup && onboardingData && <OrganizationSetupPanel apiUrl={apiUrl} onboardingData={onboardingData} tenantDomain={tenantDomain} basePath={basePath} organizationSlug={tenantSlug} />}
+        {tab === "overview" && <OverviewPage metrics={metrics} recent={recent} agents={agents} policies={policies} users={users} usageSessions={usageSessions} organizationName={onboardingData?.organization.name} mode={dashboardMode} basePath={basePath} />}
         {tab === "usage" && <UsagePage sessions={usageSessions} users={users} mode={dashboardMode} basePath={basePath} range={usageSearchParams?.range} />}
-        {(tab === "setup" || tab === "settings") && <SettingsPage apiUrl={apiUrl} onboardingData={onboardingData ?? null} deploymentMode={deploymentMode} tenantDomain={tenantDomain} tenantSlug={tenantSlug} mode={dashboardMode} />}
+        {(tab === "setup" || tab === "settings") && <SettingsPage apiUrl={apiUrl} onboardingData={onboardingData ?? null} tenantDomain={tenantDomain} tenantSlug={tenantSlug} mode={dashboardMode} settingsItem={settingsSearchParams?.item} />}
         {tab === "triggers" && <TriggersPage triggers={triggerData?.triggers ?? []} detail={triggerDetail?.trigger} filters={triggerSearchParams ?? {}} mode={dashboardMode} basePath={basePath} />}
-        {tab === "users" && <UsersPage users={users} mode={dashboardMode} />}
+        {tab === "logs" && <LogsPage logs={logsData?.logs ?? []} detail={logsData?.logDetail?.log} filters={logsSearchParams ?? {}} mode={dashboardMode} basePath={basePath} />}
+        {tab === "users" && <UsersPage users={users} mode={dashboardMode} basePath={basePath} identitySource={identitySourceLabel(onboardingData, users)} />}
         {tab === "identity" && (personal ? <PersonalIdentityPage /> : <IdentityPage apiUrl={apiUrl} onboardingData={onboardingData ?? null} />)}
-        {tab === "agents" && <AgentsPage agents={agents} mode={dashboardMode} />}
+        {tab === "agents" && <AgentsPage agents={agents} recent={recent} mode={dashboardMode} basePath={basePath} />}
         {tab === "external-agents" && <ExternalAgentsPage apiUrl={apiUrl} data={externalAgents} />}
         {tab === "mcps" && <McpServersPage apiUrl={apiUrl} data={mcpServers} mode={dashboardMode} />}
         {tab === "skills" && <SkillsPage data={skills} mode={dashboardMode} />}
@@ -500,6 +451,19 @@ export function DashboardShell({
   );
 }
 
+function organizationNeedsSetup(onboardingData: OnboardingData | null | undefined) {
+  if (!onboardingData) return false;
+  const org = onboardingData.organization;
+  const hasCompany = Boolean(org.name?.trim())
+    && !["OpenLeash Cloud Dev", "OpenLeash Managed Dev"].includes(String(org.name ?? "").trim())
+    && Boolean(org.slug?.trim())
+    && org.slug !== "openleash";
+  return !hasCompany
+    || !onboardingData.idp?.enabled
+    || onboardingData.roles.length === 0
+    || onboardingData.deploymentTokens.length === 0;
+}
+
 function IdentityProviderNotice({ basePath }: { basePath: string }) {
   return (
     <section className="dashboardNotice">
@@ -507,13 +471,30 @@ function IdentityProviderNotice({ basePath }: { basePath: string }) {
         <strong>Connect an identity provider</strong>
         <p>OpenLeash is active, but this organization is not connected to Google Workspace, Microsoft Entra ID, Okta, Ping, or LDAP yet. Connect identity to sync users and groups, assign dashboard roles, and manage rollout coverage.</p>
       </div>
-      <Link href={routeHref(basePath, "/settings")}>Connect identity</Link>
+      <Link href={`${routeHref(basePath, "/settings")}?item=identity` as any}>Connect identity</Link>
     </section>
   );
 }
 
-function Sidebar({ tab, agentsCount, usersCount, basePath, mode, extensionTabs }: { tab: DashboardTab | string; agentsCount: number; usersCount: number; basePath: string; mode: DashboardMode; extensionTabs: DashboardExtensionTab[] }) {
+function Sidebar({
+  tab,
+  agentsCount,
+  usersCount,
+  basePath,
+  mode,
+  extensionTabs,
+  settingsItem
+}: {
+  tab: DashboardTab | string;
+  agentsCount: number;
+  usersCount: number;
+  basePath: string;
+  mode: DashboardMode;
+  extensionTabs: DashboardExtensionTab[];
+  settingsItem?: string;
+}) {
   const personal = mode === "personal";
+  const settingsOpen = tab === "settings" || tab === "setup";
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -524,15 +505,14 @@ function Sidebar({ tab, agentsCount, usersCount, basePath, mode, extensionTabs }
         <NavButton active={tab === "overview"} href={dashboardHref(basePath, "/")} icon={<Home />} label="Overview" />
         <NavButton active={tab === "usage"} href={dashboardHref(basePath, "/usage")} icon={<Clock3 />} label="Usage" />
         <NavButton active={tab === "triggers"} href={dashboardHref(basePath, "/triggers")} icon={<AlertTriangle />} label={personal ? "Activity" : "Triggers"} />
+        <NavButton active={tab === "logs"} href={dashboardHref(basePath, "/logs")} icon={<FileClock />} label="Logs" />
         <NavButton active={tab === "agents"} href={dashboardHref(basePath, "/agents")} icon={<Bot />} label={personal ? "My agents" : "Agents"} badge={agentsCount || undefined} />
         {!personal && <NavButton active={tab === "users"} href={dashboardHref(basePath, "/users")} icon={<Users />} label="Users" badge={usersCount || undefined} />}
-        {!personal && <NavButton active={tab === "identity"} href={dashboardHref(basePath, "/identity")} icon={<Building2 />} label="Identity" />}
-        {!personal && <NavButton active={tab === "external-agents"} href={dashboardHref(basePath, "/external-agents")} icon={<Database />} label="External agents" />}
+        {!personal && <NavButton active={tab === "external-agents"} href={dashboardHref(basePath, "/external-agents")} icon={<Database />} label="SaaS agents" />}
         <NavButton active={tab === "mcps"} href={dashboardHref(basePath, "/mcps")} icon={<Database />} label="MCPs" />
         <NavButton active={tab === "skills"} href={dashboardHref(basePath, "/skills")} icon={<Code2 />} label="Skills" />
         <NavButton active={tab === "policies"} href={dashboardHref(basePath, "/policies")} icon={<ShieldCheck />} label={personal ? "Guardrails" : "Policies"} />
-        <NavButton active={tab === "tokens"} href={dashboardHref(basePath, "/tokens")} icon={<KeyRound />} label={personal ? "Connect" : "Tokens"} />
-        {!personal && <NavButton active={tab === "deployment"} href={dashboardHref(basePath, "/deployment")} icon={<MonitorDown />} label="Deploy" />}
+        {personal && <NavButton active={tab === "tokens"} href={dashboardHref(basePath, "/tokens")} icon={<KeyRound />} label="Connect" />}
         {extensionTabs
           .filter((item) => !personal || item.showInPersonal)
           .map((item) => (
@@ -545,18 +525,15 @@ function Sidebar({ tab, agentsCount, usersCount, basePath, mode, extensionTabs }
               badge={item.badge}
             />
           ))}
-        <NavButton active={tab === "settings" || tab === "setup"} href={dashboardHref(basePath, "/settings")} icon={<Settings />} label="Settings" />
+        <NavButton active={settingsOpen} href={dashboardHref(basePath, "/settings")} icon={<Settings />} label="Settings" />
+        {settingsOpen && !personal && (
+          <Suspense fallback={null}>
+            <SettingsTree basePath={basePath} initialItem={settingsItem} />
+          </Suspense>
+        )}
       </nav>
 
-      <div className="upgrade-card">
-        <div className="upgrade-icon"><ShieldCheck size={22} /></div>
-        <h4>{personal ? "Personal" : "Enterprise"}</h4>
-        <p>{personal ? "Your local agents, under control." : "6 days left"}</p>
-        <button type="button">{personal ? "Manage plan" : "Contact sales"}</button>
-      </div>
-
       <div className="sidebar-foot">
-        <button className="nav-item" type="button"><Moon className="ic" /><span>Dark mode</span></button>
         <button className="nav-item" type="button"><CircleHelp className="ic" /><span>Help & docs</span></button>
         <DashboardSignOutButton />
       </div>
@@ -564,7 +541,7 @@ function Sidebar({ tab, agentsCount, usersCount, basePath, mode, extensionTabs }
   );
 }
 
-type DashboardHref = "/" | "/usage" | "/setup" | "/settings" | "/triggers" | "/users" | "/identity" | "/agents" | "/external-agents" | "/mcps" | "/skills" | "/policies" | "/tokens" | "/deployment";
+type DashboardHref = "/" | "/usage" | "/setup" | "/settings" | "/triggers" | "/logs" | "/users" | "/identity" | "/agents" | "/external-agents" | "/mcps" | "/skills" | "/policies" | "/tokens" | "/deployment";
 
 function dashboardHref(basePath: string, href: DashboardHref | string) {
   if (!basePath) return href;
@@ -586,12 +563,28 @@ function NavButton({ active, href, icon, label, badge }: { active: boolean; href
   );
 }
 
+function OverviewPanel({ title, href, children }: { title: string; href: string; children: React.ReactNode }) {
+  return (
+    <section className="overviewPanel">
+      <div className="card-title">
+        <h3>{title}</h3>
+        <Link className="pill action-pill" href={href as any}>
+          <span>View</span>
+          <ChevronRight size={14} />
+        </Link>
+      </div>
+      <div className="overviewLeaderList">{children}</div>
+    </section>
+  );
+}
+
 function OverviewPage({
   metrics,
   recent,
   agents,
   policies,
-  usersCount,
+  users,
+  usageSessions,
   organizationName,
   mode,
   basePath
@@ -600,15 +593,23 @@ function OverviewPage({
   recent: Overview["recent"];
   agents: Overview["agents"];
   policies: Overview["policies"];
-  usersCount: number;
+  users: UserRow[];
+  usageSessions: UsageSession[];
   organizationName?: string | null;
   mode: DashboardMode;
   basePath: string;
 }) {
   const enabledPolicies = policies.filter((policy) => policy.enabled);
   const latest = recent.filter(isTriggerEvent).slice(0, 10);
-  const highlighted = agentHighlights(agents, recent);
+  const topAgents = aggregateAgents(agents).sort((a, b) => b.installs - a.installs || b.users - a.users).slice(0, 5);
+  const topUsers = usageByEmployee(usageSessions).slice(0, 5);
+  const topPolicies = policies
+    .filter((policy) => numeric(policy.trigger_count) > 0)
+    .sort((a, b) => numeric(b.trigger_count) - numeric(a.trigger_count))
+    .slice(0, 5);
   const personal = mode === "personal";
+  const managedUsers = users.filter((user) => Number(user.endpoint_count ?? 0) > 0 || user.status === "active").length;
+  const totalTriggers = policies.reduce((sum, policy) => sum + numeric(policy.trigger_count), 0) || numeric(metrics.denied) + numeric(metrics.questions);
   const coverageLabel = personal
     ? "Your protected coding activity"
     : organizationName?.trim() ? `${organizationName.trim()} · live coverage` : "Live coverage";
@@ -617,7 +618,7 @@ function OverviewPage({
       <Topbar />
       <div className="page-head">
         <div>
-          <h1>{personal ? "Your OpenLeash dashboard" : "Hello, Max"}</h1>
+          <h1>{personal ? "Your OpenLeash dashboard" : "Overview"}</h1>
           <p className="sub">{coverageLabel}</p>
         </div>
       </div>
@@ -625,24 +626,44 @@ function OverviewPage({
       <div className="divider" />
 
       <div className="stat-row">
-        <Stat icon={<Bot />} label={personal ? "Your agents" : "Agents"} value={metrics.agents} delta={personal ? undefined : "+2"} up={!personal} />
-        {personal ? <Stat icon={<Laptop />} label="Computers" value={metrics.computers} /> : <Stat icon={<Users />} label="Users" value={String(usersCount)} delta="+3" up />}
-        <Stat icon={<AlertTriangle />} label={personal ? "Things to review" : "Triggers"} value={metrics.events} delta={personal ? undefined : "+8%"} up={!personal} />
+        <Stat icon={<Bot />} label={personal ? "Your agents" : "Agents"} value={metrics.agents} />
+        {personal ? <Stat icon={<Laptop />} label="Computers" value={metrics.computers} /> : <Stat icon={<Users />} label="Managed users" value={String(managedUsers)} />}
+        <Stat icon={<AlertTriangle />} label={personal ? "Things to review" : "Triggers"} value={String(totalTriggers)} />
         <Stat icon={<Clock3 />} label="Agent time 24h" value={formatDuration(metrics.session_time?.last24h_seconds)} />
       </div>
 
+      <div className="overviewLeaderGrid">
+        <OverviewPanel title="Top agents" href={routeHref(basePath, "/agents")}>
+          {topAgents.map((agent) => (
+            <div className="overviewLeaderRow" key={agent.key}>
+              <AgentLogo name={agent.displayName} fallback={initials(agent.displayName).slice(0, 1)} size="small" />
+              <div>
+                <strong>{agent.displayName}</strong>
+                <span>{agent.users} user{agent.users === 1 ? "" : "s"} · {agent.installs} install{agent.installs === 1 ? "" : "s"}</span>
+              </div>
+              <em>{agent.protectedPercent}%</em>
+            </div>
+          ))}
+          {topAgents.length === 0 && <Empty text="No agents have checked in yet." />}
+        </OverviewPanel>
+
+        <OverviewPanel title="Top users by usage" href={routeHref(basePath, "/usage")}>
+          {topUsers.map((user) => (
+            <div className="overviewLeaderRow" key={user.key}>
+              <span className="avatar-sm" style={{ background: avatarFor(user.name).bg, color: avatarFor(user.name).fg }}>{initials(user.name)}</span>
+              <div>
+                <strong>{user.name}</strong>
+                <span>{user.sessions} session{user.sessions === 1 ? "" : "s"} · {formatDuration(user.duration)}</span>
+              </div>
+              <em>{user.subagents} sub</em>
+            </div>
+          ))}
+          {topUsers.length === 0 && <Empty text="No usage recorded yet." />}
+        </OverviewPanel>
+      </div>
+
       <div className="card-title overview-activity-head">
-        <h3>Agent activity</h3>
-        <div className="right"><span className="sync-pill"><Activity size={14} /> Highlighted actions</span></div>
-      </div>
-
-      <div className="agentActivityGrid">
-        {highlighted.map((group) => <AgentActivityCard key={group.key} group={group} />)}
-        {highlighted.length === 0 && <Empty text="No highlighted agent actions yet." />}
-      </div>
-
-      <div className="card-title triggers-head">
-        <h3>{personal ? "Recent activity" : "Triggers"}</h3>
+        <h3>{personal ? "Recent activity" : "Last triggers"}</h3>
         <div className="right">
           <Link className="pill action-pill" href={routeHref(basePath, "/triggers")}>
             <span>{personal ? "All activity" : "Audit log"}</span>
@@ -652,14 +673,14 @@ function OverviewPage({
       </div>
 
       <div className="trigger-list">
-        {latest.map((event) => <TriggerRow key={event.id} event={event} />)}
-        {latest.length === 0 && <Empty text="No blocked or approval-triggered events yet." />}
+        {latest.map((event) => <TriggerRow key={event.id} event={event} basePath={basePath} />)}
+        {latest.length === 0 && <Empty text="No trigger activity yet." />}
       </div>
 
       <div className="section-spacer" />
 
       <div className="card-title">
-        <h3>{personal ? "Guardrails" : "Policies"}</h3>
+        <h3>{personal ? "Guardrails" : "Top triggering policies"}</h3>
         <div className="right">
           <Link className="pill action-pill" href={routeHref(basePath, "/policies")}>
             <span>All</span>
@@ -669,14 +690,16 @@ function OverviewPage({
       </div>
 
       <div>
-        {enabledPolicies.slice(0, 5).map((policy, index) => (
-          <Link key={policy.id} className="row-card policy-row" href={routeHref(basePath, "/policies")}>
+        {(topPolicies.length ? topPolicies : enabledPolicies.slice(0, 5)).map((policy, index) => (
+          <Link key={policy.id} className="row-card policy-row" href={`${routeHref(basePath, "/triggers")}?policy=${encodeURIComponent(policy.name)}` as any}>
             <div className="row-ico">{iconForPolicy(policy, index)}</div>
             <div className="row-copy">
               <div className="row-title">{compactRule(policy.name)}</div>
+              <div className="row-sub">{policy.last_triggered_at ? `Last ${relativeTime(policy.last_triggered_at)}${policy.last_agent_name ? ` by ${policy.last_agent_name}` : ""}` : "No trigger history yet"}</div>
             </div>
             <div className="blocked-count">
-              {index === 0 ? metrics.denied : Math.max(0, Number(metrics.denied) - index)}
+              {formatCount(policy.trigger_count)}
+              <span> triggers</span>
             </div>
             <ChevronRight size={18} className="muted" />
           </Link>
@@ -687,7 +710,21 @@ function OverviewPage({
   );
 }
 
-function SettingsPage({ apiUrl, onboardingData, deploymentMode, tenantDomain, tenantSlug, mode }: { apiUrl: string; onboardingData: OnboardingData | null; deploymentMode: "cloud" | "private"; tenantDomain: string; tenantSlug?: string; mode: DashboardMode }) {
+function SettingsPage({
+  apiUrl,
+  onboardingData,
+  tenantDomain,
+  tenantSlug,
+  mode,
+  settingsItem
+}: {
+  apiUrl: string;
+  onboardingData: OnboardingData | null;
+  tenantDomain: string;
+  tenantSlug?: string;
+  mode: DashboardMode;
+  settingsItem?: string;
+}) {
   if (mode === "personal") {
     return (
       <>
@@ -716,17 +753,27 @@ function SettingsPage({ apiUrl, onboardingData, deploymentMode, tenantDomain, te
       </>
     );
   }
+  const basePath = tenantSlug ? `/${tenantSlug}` : "";
   return (
     <>
       <Topbar />
       <div className="page-head">
         <div>
           <h1>Settings</h1>
-          <p className="sub">Identity sync, dashboard roles, tenant setup, and endpoint deployment.</p>
+          <p className="sub">Organization setup, identity, dashboard access, tokens, and deployment.</p>
         </div>
       </div>
       <div className="divider" />
-      <EnterpriseOnboarding apiUrl={apiUrl} initialData={onboardingData} deploymentMode={deploymentMode} tenantDomain={tenantDomain} organizationSlug={tenantSlug} />
+      {onboardingData ? (
+        <Suspense fallback={<div className="panel"><div className="card-title"><h3>Settings</h3></div></div>}>
+          <DashboardSettingsPane apiUrl={apiUrl} onboardingData={onboardingData} tenantDomain={tenantDomain} basePath={basePath} organizationSlug={tenantSlug} initialItem={settingsItem} />
+        </Suspense>
+      ) : (
+        <div className="panel">
+          <div className="card-title"><h3>Organization setup</h3></div>
+          <p className="sub">OpenLeash could not load setup state for this organization.</p>
+        </div>
+      )}
     </>
   );
 }
@@ -775,7 +822,7 @@ type UserRow = NonNullable<Overview["users"]>[number] & {
   lastSeenLabel?: string;
 };
 
-function UsersPage({ users, mode }: { users: UserRow[]; mode: DashboardMode }) {
+function UsersPage({ users, mode, basePath, identitySource }: { users: UserRow[]; mode: DashboardMode; basePath: string; identitySource: string }) {
   if (mode === "personal") {
     return (
       <>
@@ -788,14 +835,13 @@ function UsersPage({ users, mode }: { users: UserRow[]; mode: DashboardMode }) {
         </div>
         <div className="divider" />
         <div className="userRoster">
-          {users.slice(0, 1).map((user) => <UserRosterRow key={user.id} user={user} />)}
+          {users.slice(0, 1).map((user) => <UserRosterRow key={user.id} user={user} basePath={basePath} />)}
           {users.length === 0 && <Empty text="No local user has checked in yet." />}
         </div>
       </>
     );
   }
-  const covered = users.filter((user) => Number(user.endpoint_count ?? 0) > 0 && Number(user.agent_count ?? 0) > 0);
-  const partial = users.filter((user) => Number(user.endpoint_count ?? 0) > 0 && Number(user.agent_count ?? 0) === 0);
+  const covered = users.filter((user) => Number(user.endpoint_count ?? 0) > 0);
   const notDeployed = users.filter((user) => Number(user.endpoint_count ?? 0) === 0);
   return (
     <>
@@ -813,14 +859,7 @@ function UsersPage({ users, mode }: { users: UserRow[]; mode: DashboardMode }) {
           <div className="identityIcon"><Building2 size={20} /></div>
           <div>
             <div className="identityLabel">Identity source</div>
-            <strong>Okta</strong>
-          </div>
-        </div>
-        <div className="identityCard">
-          <div className="identityIcon"><Users size={20} /></div>
-          <div>
-            <div className="identityLabel">HR context</div>
-            <strong>BambooHR</strong>
+            <strong>{identitySource}</strong>
           </div>
         </div>
         <div className="identityCard">
@@ -834,7 +873,7 @@ function UsersPage({ users, mode }: { users: UserRow[]; mode: DashboardMode }) {
           <div className="identityIcon"><UserPlus size={20} /></div>
           <div>
             <div className="identityLabel">Needs rollout</div>
-            <strong>{partial.length + notDeployed.length}</strong>
+            <strong>{notDeployed.length}</strong>
           </div>
         </div>
       </div>
@@ -847,19 +886,18 @@ function UsersPage({ users, mode }: { users: UserRow[]; mode: DashboardMode }) {
       </div>
 
       <div className="userRoster">
-        {users.map((user) => <UserRosterRow key={user.id} user={user} />)}
+        {users.map((user) => <UserRosterRow key={user.id} user={user} basePath={basePath} />)}
         {users.length === 0 && <Empty text="No users synced yet." />}
       </div>
     </>
   );
 }
 
-function UserRosterRow({ user }: { user: UserRow }) {
+function UserRosterRow({ user, basePath }: { user: UserRow; basePath: string }) {
   const endpointCount = Number(user.endpoint_count ?? 0);
   const agentCount = Number(user.agent_count ?? 0);
-  const deployed = endpointCount > 0;
-  const covered = deployed && agentCount > 0;
-  const status = covered ? "covered" : deployed ? "partial" : "not-deployed";
+  const clientInstalled = endpointCount > 0;
+  const status = clientInstalled ? "covered" : "not-deployed";
   const agents = Array.isArray(user.agents) ? user.agents : [];
   const hostnames = Array.isArray(user.hostnames) ? user.hostnames : [];
   const avatar = avatarFor(user.display_name);
@@ -871,8 +909,8 @@ function UserRosterRow({ user }: { user: UserRow }) {
         <div className="user-meta">{user.email} · {user.department ?? departmentFor(user.email)} · {user.hr_title ?? titleFor(user.role)}</div>
       </div>
       <div className="coverage-stack">
-        <span className={`coverage ${status}`}><span className="dot" />{covered ? "deployed" : deployed ? "agent missing" : "not deployed"}</span>
-        <span className="coverage-note">{covered ? `${agentCount} agent${agentCount === 1 ? "" : "s"} protected` : deployed ? "endpoint seen, no agent runtime" : "waiting for endpoint install"}</span>
+        <span className={`coverage ${status}`}><span className="dot" />{clientInstalled ? "client active" : "client missing"}</span>
+        <span className="coverage-note">{clientInstalled ? "OpenLeash client checked in" : "waiting for client install"}</span>
       </div>
       <div className="agent-icons">
         {agents.slice(0, 4).map((name) => <AgentLogo key={name} name={name} fallback={initials(name).slice(0, 1)} size="small" />)}
@@ -883,11 +921,28 @@ function UserRosterRow({ user }: { user: UserRow }) {
         <span>{hostnames[0] ?? "No endpoint"}</span>
       </div>
       <div className="last-seen">{user.lastSeenLabel ?? (user.last_seen_at ? relativeTime(user.last_seen_at) : "Never")}</div>
+      <Link className="pill action-pill userLogsLink" href={`${routeHref(basePath, "/logs")}?userId=${encodeURIComponent(user.id)}` as any}>Logs</Link>
     </article>
   );
 }
 
-function AgentsPage({ agents, mode }: { agents: Overview["agents"]; mode: DashboardMode }) {
+function identitySourceLabel(onboardingData: OnboardingData | null | undefined, users: UserRow[]) {
+  const provider = onboardingData?.idp?.provider ?? users.find((user) => user.idp_provider)?.idp_provider;
+  return providerLabel(provider) ?? "Not connected";
+}
+
+function providerLabel(provider?: string | null) {
+  const value = String(provider ?? "").trim().toLowerCase();
+  if (!value) return undefined;
+  if (["google", "google_workspace", "workspace"].includes(value)) return "Google Workspace";
+  if (["azuread", "azure_ad", "entra", "entra_id", "microsoft_entra", "microsoft_entra_id"].includes(value)) return "Microsoft Entra ID";
+  if (value === "okta") return "Okta";
+  if (["ping", "ping_identity"].includes(value)) return "Ping Identity";
+  if (["ldap", "active_directory", "ad"].includes(value)) return "Active Directory / LDAP";
+  return provider ?? "Connected";
+}
+
+function AgentsPage({ agents, recent, mode, basePath }: { agents: Overview["agents"]; recent: Overview["recent"]; mode: DashboardMode; basePath: string }) {
   const groupedAgents = aggregateAgents(agents);
   const personal = mode === "personal";
   return (
@@ -903,7 +958,7 @@ function AgentsPage({ agents, mode }: { agents: Overview["agents"]; mode: Dashbo
       <div className="cards">
         {groupedAgents.map((agent, index) => {
           const mark = agentMark(agent.displayName, index);
-          const sessions = agent.sessions.slice(0, 5);
+          const events = agentEvents(agent, recent).slice(0, 4);
           return (
             <article key={agent.key} className="agent-card">
               <div className="agent-head">
@@ -918,17 +973,16 @@ function AgentsPage({ agents, mode }: { agents: Overview["agents"]; mode: Dashbo
                 <div className="agent-stat"><div className="v">{agent.installs}</div><div className="l">Installs</div></div>
                 <div className="agent-stat"><div className="v">{agent.protectedPercent}%</div><div className="l">Protected</div></div>
               </div>
-              <div className="session-list">
-                {sessions.map((session) => (
-                  <div className="session-line" key={session.id}>
-                    <div>
-                      <strong>{session.title || "Agent session"}</strong>
-                      <span>{session.project_path || "No project"} · {formatDuration(session.duration_seconds)} · {session.event_count ?? 0} events</span>
-                    </div>
-                    <span className="tag">{session.last_activity_at ? relativeTime(session.last_activity_at) : "new"}</span>
-                  </div>
+              <div className="agent-event-list">
+                {events.map((event) => (
+                  <Link className="agent-event-line" href={routeHref(basePath, `/triggers/${event.id}`)} key={event.id}>
+                    <div className="agent-event-project">{projectTag(event.project_path) ?? "No project"}</div>
+                    <strong>{agentActionTitle(event)}</strong>
+                    <span>{agentActionContext(event)}</span>
+                    <em>{relativeTime(event.created_at)}</em>
+                  </Link>
                 ))}
-                {sessions.length === 0 && <span className="muted-small">No sessions captured yet.</span>}
+                {events.length === 0 && <span className="muted-small">No notable actions captured yet.</span>}
               </div>
               <div className="bar-track"><div className="bar-fill" style={{ width: `${agent.protectedPercent}%` }} /></div>
               <span className="tag allowed"><span className="dot" />blocking</span>
@@ -939,6 +993,56 @@ function AgentsPage({ agents, mode }: { agents: Overview["agents"]; mode: Dashbo
       </div>
     </>
   );
+}
+
+function agentEvents(agent: ReturnType<typeof aggregateAgents>[number], recent: Overview["recent"]) {
+  return recent
+    .filter((event) => agentProductKey({
+      id: event.agent_name,
+      kind: event.agent_kind ?? event.agent_name,
+      display_name: event.agent_name,
+      hostname: event.hostname,
+      user_name: event.user_name,
+      last_seen_at: event.created_at
+    }) === agent.key)
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+}
+
+function agentActionTitle(event: Overview["recent"][number]) {
+  const text = eventText(event).toLowerCase();
+  const prompt = (event.prompt || event.question || event.summary || "").trim();
+  if (/hooks?\s+config/.test(text)) return "Trying to read hooks config file";
+  if (/\.env/.test(text)) return /write|edit|create|save/i.test(text) ? "Trying to edit environment file" : "Trying to read environment file";
+  if (/mcp/.test(text)) return "Trying to access MCP configuration";
+  if (/git\s+push|push to/.test(text)) return "Trying to push code";
+  if (/git\s+init|repo|repository/.test(text)) return "Trying to create a repository";
+  if (/delete|rm -rf|destructive|reset --hard/.test(text)) return "Trying to run a destructive action";
+  if (/secret|token|credential|private key/.test(text)) return "Trying to access secrets";
+  if (event.tool_name) return `Trying to ${humanToolVerb(event.tool_name)}`;
+  if (prompt) return sentenceTitle(prompt);
+  return compactRule(event.summary);
+}
+
+function agentActionContext(event: Overview["recent"][number]) {
+  const evidence = event.triggered_policies?.flatMap((policy) => evidenceItems(policy.evidence)).find(Boolean);
+  const request = event.prompt || event.question;
+  const outcome = decisionLabel(event.resolution ?? event.decision);
+  return [request ? `Requested: ${truncate(request, 86)}` : undefined, evidence ? truncate(evidence, 86) : undefined, `Outcome: ${outcome}`].filter(Boolean).join(" · ");
+}
+
+function humanToolVerb(toolName: string) {
+  const normalized = toolName.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/[_-]+/g, " ").toLowerCase();
+  if (normalized.includes("read")) return "read a file";
+  if (normalized.includes("write") || normalized.includes("edit")) return "edit a file";
+  if (normalized.includes("bash")) return "run a command";
+  if (normalized.includes("grep") || normalized.includes("search")) return "search the project";
+  return normalized || "use a tool";
+}
+
+function sentenceTitle(value: string) {
+  const clean = value.replace(/\s+/g, " ").replace(/[.?!]+$/, "").trim();
+  if (!clean) return "Agent action";
+  return clean.charAt(0).toUpperCase() + clean.slice(1);
 }
 
 function UsagePage({ sessions, users, mode, basePath, range }: { sessions: UsageSession[]; users: UserRow[]; mode: DashboardMode; basePath: string; range?: string }) {
@@ -1029,7 +1133,7 @@ function ExternalAgentsPage({ apiUrl, data }: { apiUrl: string; data?: ExternalA
       <Topbar />
       <div className="page-head">
         <div>
-          <h1>External agents</h1>
+          <h1>SaaS agents</h1>
           <p className="sub">Monitor SaaS agent conversations through the same OpenLeash rules engine.</p>
         </div>
       </div>
@@ -1037,7 +1141,7 @@ function ExternalAgentsPage({ apiUrl, data }: { apiUrl: string; data?: ExternalA
       <div className="deployHero">
         <div>
           <h3>Conversation sync</h3>
-          <p>OpenLeash lists configured external agent providers, fetches the fullest conversation log available, normalizes it, and stores the evaluation next to local agent activity.</p>
+          <p>OpenLeash lists configured SaaS agent providers, fetches the fullest conversation log available, normalizes it, and stores the evaluation next to local agent activity.</p>
         </div>
         <span className="tag allowed"><span className="dot" />same policies</span>
       </div>
@@ -1067,7 +1171,7 @@ function ExternalAgentsPage({ apiUrl, data }: { apiUrl: string; data?: ExternalA
             {connector.notes.map((note) => <p className="mutedText" key={note}>{note}</p>)}
           </article>
         ))}
-        {connectors.length === 0 && <Empty text="No external connectors configured." />}
+        {connectors.length === 0 && <Empty text="No SaaS agent connectors configured." />}
       </div>
 
       <div className="panel externalSync">
@@ -1222,18 +1326,7 @@ function TokensPage({ apiUrl, mode }: { apiUrl: string; mode: DashboardMode }) {
         </div>
       </div>
       <div className="divider" />
-      <div className="tokenLayout">
-        <div className="panel">
-          <div className="card-title"><h3>Issue token</h3></div>
-          <TokenIssuer apiUrl={apiUrl} />
-        </div>
-        <div className="panel">
-          <div className="card-title"><h3>Install</h3></div>
-          <pre>{`npm run desktop-cli -- configure --token <token> --api-url http://127.0.0.1:9317
-npm run desktop-cli -- install-hooks --all
-npm run desktop-client`}</pre>
-        </div>
-      </div>
+      <TokensSettingsPanel apiUrl={apiUrl} />
     </>
   );
 }
@@ -1308,7 +1401,7 @@ function Topbar() {
   return (
     <div className="topbar">
       <div className="date-chip">
-        <span>Mon, 11 May 2026</span>
+        <LiveDate />
         <span className="ic"><CalendarDays size={18} /></span>
       </div>
       <button className="iconbutton" type="button"><Bell size={18} /><span className="dotmark" /></button>
@@ -1316,6 +1409,7 @@ function Topbar() {
     </div>
   );
 }
+
 
 function Stat({ icon, label, value, delta, up, down }: { icon: React.ReactNode; label: string; value: string; delta?: string; up?: boolean; down?: boolean }) {
   return (
@@ -1332,16 +1426,15 @@ function Stat({ icon, label, value, delta, up, down }: { icon: React.ReactNode; 
   );
 }
 
-function TriggerRow({ event }: { event: Overview["recent"][number] }) {
-  const av = avatarFor(event.user_name ?? event.hostname);
+function TriggerRow({ event, basePath }: { event: Overview["recent"][number]; basePath: string }) {
   const hasFailedPolicy = (event.triggered_policies ?? []).some((policy) => policy.status === "failed");
   const decisionClass = event.decision === "deny" || hasFailedPolicy ? "blocked" : event.decision === "ask" ? "asked" : "allowed";
   const triggered = event.triggered_policies ?? [];
   const firstPolicy = triggered[0];
   const title = firstPolicy?.policy_name ?? compactRule(event.question ?? event.summary);
   return (
-    <Link className="trigger-row" href={`/triggers/${event.id}`}>
-      <span className="avatar-sm" style={{ background: av.bg, color: av.fg }}>{initials(event.user_name ?? event.hostname)}</span>
+    <Link className="trigger-row" href={routeHref(basePath, `/triggers/${event.id}`)}>
+      <AgentLogo name={event.agent_name} fallback={initials(event.agent_name).slice(0, 1)} size="large" />
       <div className="trigger-copy">
         <div className="who">{event.user_name ?? "Unknown user"} <span>· {title}</span></div>
         <div className="agent-line">
@@ -1359,10 +1452,16 @@ function TriggerRow({ event }: { event: Overview["recent"][number] }) {
         )}
       </div>
       <span className="path">{projectTag(event.project_path) ?? event.tool_name ?? event.event_name}</span>
-      <span className={`tag ${decisionClass}`}><span className="dot" />{decisionClass}</span>
+      <span className={`tag ${decisionClass}`}><span className="dot" />{triggerStatusLabel(decisionClass)}</span>
       <span className="when">{relativeTime(event.created_at)}</span>
     </Link>
   );
+}
+
+function triggerStatusLabel(value: "blocked" | "asked" | "allowed") {
+  if (value === "blocked") return "Blocked";
+  if (value === "asked") return "Waiting";
+  return "Passed";
 }
 
 type HighlightedAction = {
@@ -1591,6 +1690,7 @@ function TriggerAuditRow({ trigger, basePath }: { trigger: TriggerItem; basePath
   const state = trigger.resolution ?? trigger.decision;
   return (
     <Link className="triggerAuditRow" href={routeHref(basePath, `/triggers/${trigger.id}`)}>
+      <AgentLogo name={trigger.agent_name} fallback={initials(trigger.agent_name).slice(0, 1)} size="large" />
       <div className="audit-main">
         <div className="audit-title">{policy?.policy_name ?? trigger.summary}</div>
         <div className="audit-meta">
@@ -1622,6 +1722,13 @@ function TriggerDetailPage({ trigger, basePath, mode }: { trigger: TriggerDetail
 
       <div className="detailGrid">
         <section className="detailPanel">
+          <div className="detailAgentHeader">
+            <AgentLogo name={trigger.agent_name} fallback={initials(trigger.agent_name).slice(0, 1)} size="large" />
+            <div>
+              <strong>{trigger.agent_name}</strong>
+              <span>{trigger.user_name ?? "Unknown user"} · {trigger.hostname ?? "Unknown endpoint"}</span>
+            </div>
+          </div>
           <div className="card-title"><h3>What happened</h3></div>
           <dl className="metaGrid">
             <div><dt>User</dt><dd>{trigger.user_name ?? "Unknown"}</dd></div>
@@ -1674,6 +1781,245 @@ function AgentChip({ name }: { name: string }) {
   );
 }
 
+function LogsPage({
+  logs,
+  detail,
+  filters,
+  mode,
+  basePath
+}: {
+  logs: LogItem[];
+  detail?: LogItem;
+  filters: Record<string, string | undefined>;
+  mode: DashboardMode;
+  basePath: string;
+}) {
+  const personal = mode === "personal";
+  if (detail) return <LogDetailPage log={detail} basePath={basePath} mode={mode} />;
+  return (
+    <>
+      <Topbar />
+      <div className="page-head">
+        <div>
+          <h1>Logs</h1>
+          <p className="sub">{personal ? "Search your local OpenLeash hook history." : "Search hook logs by user, agent, prompt, tool, project, session, or payload."}</p>
+        </div>
+      </div>
+      <div className="divider" />
+      <form className="triggerFilters logsFilters" action={dashboardHref(basePath, "/logs")}>
+        <label>
+          <span>Search</span>
+          <div className="searchInput"><Search size={16} /><input name="q" defaultValue={filters.q ?? ""} placeholder="Prompt, file, payload, session..." /></div>
+        </label>
+        <label>
+          <span>{personal ? "Profile" : "User"}</span>
+          <input name="user" defaultValue={filters.user ?? ""} placeholder={personal ? "You" : "Max Brin"} />
+          {filters.userId && <input name="userId" type="hidden" defaultValue={filters.userId} />}
+        </label>
+        <label>
+          <span>Agent</span>
+          <input name="agent" defaultValue={filters.agent ?? ""} placeholder="Claude Code" />
+        </label>
+        <label>
+          <span>Event</span>
+          <select name="event" defaultValue={filters.event ?? ""}>
+            <option value="">Any</option>
+            <option value="UserPromptSubmit">Prompt</option>
+            <option value="PreToolUse">Tool request</option>
+            <option value="PostToolUse">Tool result</option>
+            <option value="SessionStart">Session start</option>
+            <option value="SessionEnd">Session end</option>
+          </select>
+        </label>
+        <label>
+          <span>Status</span>
+          <select name="decision" defaultValue={filters.decision ?? ""}>
+            <option value="">Any</option>
+            <option value="ask">Needs approval</option>
+            <option value="deny">Denied</option>
+            <option value="allow">Allowed</option>
+            <option value="passed">Passed</option>
+            <option value="logged">Logged only</option>
+          </select>
+        </label>
+        <label>
+          <span>From</span>
+          <input name="dateFrom" type="date" defaultValue={filters.dateFrom ?? ""} />
+        </label>
+        <label>
+          <span>To</span>
+          <input name="dateTo" type="date" defaultValue={filters.dateTo ?? ""} />
+        </label>
+        <button type="submit">Search</button>
+      </form>
+
+      <div className="triggerAuditList">
+        {logs.map((log) => <LogAuditRow key={log.id} log={log} basePath={basePath} />)}
+        {logs.length === 0 && <Empty text="No logs matched this search." />}
+      </div>
+    </>
+  );
+}
+
+function LogAuditRow({ log, basePath }: { log: LogItem; basePath: string }) {
+  const state = logState(log);
+  const title = logActionTitle(log);
+  const policies = (log.policy_results ?? []).filter((policy) => policy.status !== "passed");
+  return (
+    <Link className="triggerAuditRow logAuditRow" href={routeHref(basePath, `/logs/${log.id}`)}>
+      <AgentLogo name={log.agent_name ?? log.agent_kind ?? "Agent"} fallback={initials(log.agent_name ?? log.agent_kind ?? "A").slice(0, 1)} size="large" />
+      <div className="audit-main">
+        <div className="audit-title">{title}</div>
+        <div className="audit-meta">
+          {log.user_name ?? log.user_email ?? "Unknown user"} · {log.agent_name ?? log.agent_kind ?? "Unknown agent"} · {projectTag(log.project_path ?? undefined) ?? "No project"} · {relativeTime(log.created_at)}
+        </div>
+        <div className="audit-evidence">
+          {policies.length > 0 ? policies.slice(0, 3).map((policy) => policy.policy_name).join(" · ") : log.session_id}
+        </div>
+      </div>
+      <span className={`tag ${state.className}`}><span className="dot" />{state.label}</span>
+      <ChevronRight size={18} className="muted" />
+    </Link>
+  );
+}
+
+function LogDetailPage({ log, basePath, mode }: { log: LogItem; basePath: string; mode: DashboardMode }) {
+  const transcript = latestLogConversationTurns(log);
+  const state = logState(log);
+  const policyResults = log.policy_results ?? [];
+  const payloadText = safeJson(log.payload);
+  const personal = mode === "personal";
+  return (
+    <>
+      <Topbar />
+      <div className="page-head">
+        <div>
+          <h1>{personal ? "Activity log" : "Log detail"}</h1>
+          <p className="sub">{logActionTitle(log)}</p>
+        </div>
+        <Link className="pill action-pill" href={routeHref(basePath, "/logs")}>Back</Link>
+      </div>
+      <div className="divider" />
+
+      <div className="detailGrid">
+        <section className="detailPanel">
+          <div className="detailAgentHeader">
+            <AgentLogo name={log.agent_name ?? log.agent_kind ?? "Agent"} fallback={initials(log.agent_name ?? log.agent_kind ?? "A").slice(0, 1)} size="large" />
+            <div>
+              <strong>{log.agent_name ?? log.agent_kind ?? "Unknown agent"}</strong>
+              <span>{log.user_name ?? log.user_email ?? "Unknown user"} · {log.hostname ?? "Unknown endpoint"}</span>
+            </div>
+          </div>
+          <div className="card-title"><h3>What happened</h3><span className={`tag ${state.className}`}><span className="dot" />{state.label}</span></div>
+          <dl className="metaGrid">
+            <div><dt>User</dt><dd>{log.user_name ?? log.user_email ?? "Unknown"}</dd></div>
+            <div><dt>Agent</dt><dd>{log.agent_name ?? log.agent_kind ?? "Unknown"}</dd></div>
+            <div><dt>Project</dt><dd>{log.project_path ?? "Unknown"}</dd></div>
+            <div><dt>Tool/event</dt><dd>{log.tool_name ?? log.event_name}</dd></div>
+            <div><dt>Session</dt><dd>{log.session_id}</dd></div>
+            <div><dt>When</dt><dd>{new Date(log.created_at).toLocaleString()}</dd></div>
+          </dl>
+        </section>
+
+        <section className="detailPanel">
+          <div className="card-title"><h3>Policy evaluation</h3></div>
+          <div className="policyHitList">
+            {policyResults.map((policy) => (
+              <article key={`${policy.policy_name}-${policy.status}`}>
+                <strong>{policy.policy_name}</strong>
+                <span className={`tag ${policy.status === "passed" ? "allowed" : policy.status === "failed" ? "blocked" : "asked"}`}><span className="dot" />{policy.status === "passed" ? "passed" : policy.status}</span>
+                <p>{policy.explanation}</p>
+                {evidenceItems(policy.evidence).map((item, index) => <code key={`${item}-${index}`}>{item}</code>)}
+              </article>
+            ))}
+            {policyResults.length === 0 && <Empty text="This hook was logged without a policy evaluation." />}
+          </div>
+        </section>
+      </div>
+
+      <section className="detailPanel full">
+        <div className="card-title">
+          <h3>Conversation context</h3>
+          <span className="muted">Latest captured messages</span>
+        </div>
+        {transcript.map((turn, index) => (
+          <div key={index} className="conversationLine">
+            <strong>{conversationRoleLabel(turn.role)}{turn.at ? ` · ${relativeTime(turn.at)}` : ""}</strong>
+            <p>{turn.content}</p>
+          </div>
+        ))}
+        {transcript.length === 0 && <Empty text="No transcript was included with this hook event." />}
+      </section>
+
+      <section className="detailPanel full">
+        <div className="card-title"><h3>Raw hook payload</h3></div>
+        <pre className="payloadBlock">{payloadText}</pre>
+      </section>
+    </>
+  );
+}
+
+function logState(log: LogItem) {
+  const failed = (log.policy_results ?? []).some((policy) => policy.status === "failed");
+  const asked = (log.policy_results ?? []).some((policy) => policy.status === "needs_question");
+  if (log.resolution === "deny" || log.decision === "deny" || failed) return { label: "blocked", className: "blocked" };
+  if (log.decision === "ask" || asked) return { label: "needs approval", className: "asked" };
+  if (log.decision === "allow") return { label: "passed", className: "allowed" };
+  return { label: "logged", className: "neutral" };
+}
+
+function logActionTitle(log: LogItem) {
+  const tool = String(log.tool_name ?? "").trim();
+  const path = toolTargetPath(log);
+  if (tool) {
+    const verb = toolActionVerb(tool);
+    return path ? `${verb} ${path}` : `${verb} with ${tool}`;
+  }
+  const prompt = String(log.prompt ?? "").replace(/\s+/g, " ").trim();
+  if (prompt) return prompt.slice(0, 140);
+  return eventLabel(log.event_name);
+}
+
+function toolActionVerb(tool: string) {
+  const normalized = tool.toLowerCase();
+  if (normalized.includes("read")) return "Reading";
+  if (normalized.includes("write") || normalized.includes("edit") || normalized.includes("patch")) return "Editing";
+  if (normalized.includes("bash") || normalized.includes("shell")) return "Running command";
+  if (normalized.includes("grep") || normalized.includes("glob") || normalized.includes("search")) return "Searching";
+  return "Using";
+}
+
+function toolTargetPath(log: LogItem) {
+  const payload = log.payload && typeof log.payload === "object" ? log.payload as Record<string, unknown> : {};
+  const raw = payload.raw && typeof payload.raw === "object" ? payload.raw as Record<string, unknown> : {};
+  const toolInput = raw.tool_input && typeof raw.tool_input === "object" ? raw.tool_input as Record<string, unknown> : {};
+  const event = payload.event && typeof payload.event === "object" ? payload.event as Record<string, unknown> : {};
+  const eventTool = event.tool && typeof event.tool === "object" ? event.tool as Record<string, unknown> : {};
+  const input = eventTool.input && typeof eventTool.input === "object" ? eventTool.input as Record<string, unknown> : {};
+  const candidate = toolInput.file_path ?? toolInput.path ?? toolInput.command ?? input.file_path ?? input.path ?? input.command;
+  return typeof candidate === "string" && candidate.trim() ? candidate.trim() : undefined;
+}
+
+function eventLabel(value: string) {
+  return value.replace(/([a-z])([A-Z])/g, "$1 $2");
+}
+
+function latestLogConversationTurns(log: LogItem): ConversationTurnView[] {
+  const turns = transcriptFromPayload(log.payload).slice(-5);
+  const prompt = log.prompt?.trim();
+  if (!prompt) return turns;
+  const duplicate = turns.some((turn) => turn.role === "user" && turn.content.trim() === prompt);
+  return duplicate ? turns : [...turns, { role: "user", content: prompt, at: log.occurred_at }].slice(-5);
+}
+
+function safeJson(value: unknown) {
+  try {
+    return JSON.stringify(value ?? {}, null, 2);
+  } catch {
+    return "{}";
+  }
+}
+
 function AgentLogo({ name, fallback, size }: { name: string; fallback: string; size: "small" | "large" }) {
   const icon = agentIconFor(name);
   return (
@@ -1686,7 +2032,13 @@ function AgentLogo({ name, fallback, size }: { name: string; fallback: string; s
 function agentIconFor(name: string) {
   const text = name.toLowerCase();
   const base = "https://cdn.jsdelivr.net/npm/simple-icons@latest/icons";
-  if (text.includes("claude")) return { src: `${base}/claude.svg` };
+  if (text.includes("claude")) return { src: "/agents/claude.png" };
+  if (text.includes("antigravity")) return { src: "/agents/antigravity.png" };
+  if (text.includes("cline")) return { src: "/agents/cline.png" };
+  if (text.includes("opencode") || text.includes("open code")) return { src: "/agents/opencode.png" };
+  if (text.includes("cursor")) return { src: "/agents/cursor.png" };
+  if (text.includes("codex")) return { src: "/agents/codex.png" };
+  if (text.includes("chatgpt") || text.includes("chat gpt")) return { src: "/agents/chatgpt.png" };
   if (text.includes("salesforce") || text.includes("agentforce")) return { src: `${base}/salesforce.svg` };
   if (text.includes("azure") || text.includes("foundry")) return { src: `${base}/microsoftazure.svg` };
   if (text.includes("copilot") || text.includes("agent 365")) return { src: `${base}/microsoftcopilot.svg` };
@@ -1694,8 +2046,7 @@ function agentIconFor(name: string) {
   if (text.includes("vertex") || text.includes("gemini enterprise")) return { src: `${base}/googlecloud.svg` };
   if (text.includes("n8n")) return { src: `${base}/n8n.svg` };
   if (text.includes("zapier")) return { src: `${base}/zapier.svg` };
-  if (text.includes("codex") || text.includes("openai")) return { src: `${base}/openai.svg` };
-  if (text.includes("cursor")) return { src: `${base}/cursor.svg` };
+  if (text.includes("openai")) return { src: "/agents/codex.png" };
   if (text.includes("gemini")) return { src: `${base}/googlegemini.svg` };
   if (text.includes("windsurf")) return { src: `${base}/windsurf.svg` };
   if (text.includes("copilot")) return { src: `${base}/githubcopilot.svg` };
@@ -1770,6 +2121,10 @@ function numeric(value: string | number | undefined | null) {
   return Number(value ?? 0) || 0;
 }
 
+function formatCount(value: string | number | undefined | null) {
+  return numeric(value).toLocaleString();
+}
+
 function aggregateAgents(agents: Overview["agents"]) {
   const grouped = new Map<string, {
     key: string;
@@ -1842,7 +2197,7 @@ function agentProductKind(agent: Overview["agents"][number]) {
 }
 
 function emailFor(name: string) {
-  return `${name.toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\.+|\.+$/g, "") || "user"}@northwind.example`;
+  return name.includes("@") ? name : "";
 }
 
 function newestDate(a?: string | null, b?: string | null) {
@@ -1907,6 +2262,13 @@ function compactRule(value: string) {
     .replace(/^Redact /i, "")
     .replace(/\.$/, "");
   return compact.charAt(0).toUpperCase() + compact.slice(1);
+}
+
+function decisionLabel(value: string) {
+  if (value === "allow") return "allowed";
+  if (value === "deny") return "denied";
+  if (value === "ask") return "waiting for approval";
+  return value;
 }
 
 function evidenceItems(value: string[] | string | undefined) {

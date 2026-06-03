@@ -1,6 +1,7 @@
 "use client";
 
 import { Search, Plus, X } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { apiFetch } from "../lib/api-client";
@@ -29,11 +30,18 @@ export function PolicyManager({ apiUrl, policies, organizationSlug }: { apiUrl: 
   );
   const [isCreating, setIsCreating] = useState(false);
   const [search, setSearch] = useState("");
+  const [activeCategory, setActiveCategory] = useState(() => firstPolicyCategory(policies));
   const [newRule, setNewRule] = useState("Do not allow agents to send source code to unknown external domains.");
 
   useEffect(() => {
     setDrafts(Object.fromEntries(policies.map((policy) => [policy.id, policy])));
   }, [policies]);
+
+  useEffect(() => {
+    const categories = policyCategoryCounts(policies, drafts).map(({ category }) => category);
+    if (categories.length === 0) return;
+    if (!categories.includes(activeCategory)) setActiveCategory(categories[0]);
+  }, [activeCategory, drafts, policies]);
 
   async function save(policy: Policy) {
     const title = summarizePolicyTitle(policy.natural_language_rule);
@@ -61,7 +69,7 @@ export function PolicyManager({ apiUrl, policies, organizationSlug }: { apiUrl: 
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         name: summarizePolicyTitle(rule),
-        category: categoryForRule(rule),
+        category: activeCategory,
         description: "Created from dashboard",
         severity: "medium",
         naturalLanguageRule: rule,
@@ -74,11 +82,14 @@ export function PolicyManager({ apiUrl, policies, organizationSlug }: { apiUrl: 
     router.refresh();
   }
 
+  const categoryCounts = policyCategoryCounts(policies, drafts);
+  const selectedCategory = categoryCounts.find(({ category }) => category === activeCategory)?.category ?? categoryCounts[0]?.category ?? policyCategories[0];
   const filtered = policies.filter((policy) => {
     const draft = drafts[policy.id] ?? policy;
+    const category = draft.category || categoryForPolicy(draft);
+    if (category !== selectedCategory) return false;
     const haystack = [
       draft.name,
-      draft.category,
       draft.description,
       draft.severity,
       draft.natural_language_rule,
@@ -87,14 +98,29 @@ export function PolicyManager({ apiUrl, policies, organizationSlug }: { apiUrl: 
     ].join(" ").toLowerCase();
     return haystack.includes(search.trim().toLowerCase());
   });
-  const groups = groupPolicies(filtered, drafts);
 
   return (
     <div className="policyManagerShell">
+      <nav className="policyCategoryNav" aria-label="Policy categories">
+        {categoryCounts.map(({ category, count: categoryCount }) => (
+          <button
+            key={category}
+            type="button"
+            className={category === selectedCategory ? "active" : ""}
+            onClick={() => {
+              setActiveCategory(category);
+              setSearch("");
+            }}
+          >
+            <span>{category}</span>
+            <b>{categoryCount}</b>
+          </button>
+        ))}
+      </nav>
       <div className="policyToolbar">
         <label className="policySearch">
           <Search size={18} />
-          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search policies, categories, rules, triggers..." />
+          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={`Search ${selectedCategory.toLowerCase()} policies...`} />
         </label>
         <button className="policyCreateTopButton" type="button" onClick={() => setIsCreating(true)}>
           <Plus size={18} />
@@ -104,13 +130,9 @@ export function PolicyManager({ apiUrl, policies, organizationSlug }: { apiUrl: 
       <div className="policyList">
         {policies.length === 0 ? <div className="policyEmptyInline">No policies configured yet.</div> : null}
         {policies.length > 0 && filtered.length === 0 ? <div className="policyEmptyInline">No policies match that search.</div> : null}
-        {groups.map(([category, items]) => (
-          <section className="policyCategoryGroup" key={category}>
-            <div className="policyCategoryHead">
-              <h2>{category}</h2>
-              <span>{items.length} polic{items.length === 1 ? "y" : "ies"}</span>
-            </div>
-            {items.map((policy) => {
+        {policies.length > 0 && filtered.length > 0 ? (
+          <section className="policyCategoryGroup">
+            {filtered.map((policy) => {
               const draft = drafts[policy.id] ?? policy;
               const title = summarizePolicyTitle(draft.natural_language_rule);
               return (
@@ -118,7 +140,7 @@ export function PolicyManager({ apiUrl, policies, organizationSlug }: { apiUrl: 
                   <div className="policyEditorHead">
                     <div>
                       <strong>{title}</strong>
-                      <span>{draft.enabled ? "Enabled" : "Disabled"} · {draft.severity} · {draft.locked ? "mandatory" : "optional"}</span>
+                      <span>{draft.enabled ? "Enabled" : "Disabled"} · {draft.severity}</span>
                     </div>
                     <label className="policySwitch">
                       <input
@@ -131,32 +153,23 @@ export function PolicyManager({ apiUrl, policies, organizationSlug }: { apiUrl: 
                     </label>
                   </div>
                   <div className="policyTriggerMeta">
-                    <span><b>{count(policy.trigger_count)}</b> triggers</span>
+                    <Link href={policyTriggersHref(organizationSlug, title) as any}><b>{count(policy.trigger_count)}</b> triggers</Link>
                     <span><b>{count(policy.deny_count)}</b> denied</span>
                     <span><b>{count(policy.question_count)}</b> questions</span>
                     <span>{policy.last_triggered_at ? `Last: ${formatDate(policy.last_triggered_at)}${policy.last_agent_name ? ` by ${policy.last_agent_name}` : ""}` : "No trigger history yet"}</span>
+                    <label className="policyLockRow">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(draft.locked)}
+                        onChange={(event) => setDrafts({ ...drafts, [policy.id]: { ...draft, locked: event.target.checked, enabled: event.target.checked ? true : draft.enabled } })}
+                      />
+                      <span>Mandatory for enrolled clients</span>
+                    </label>
                   </div>
-                  <label className="policyField">
-                    <span>Category</span>
-                    <select
-                      value={draft.category || categoryForPolicy(draft)}
-                      onChange={(event) => setDrafts({ ...drafts, [policy.id]: { ...draft, category: event.target.value } })}
-                    >
-                      {policyCategories.map((item) => <option key={item} value={item}>{item}</option>)}
-                    </select>
-                  </label>
-                  <label className="policyLockRow">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(draft.locked)}
-                      onChange={(event) => setDrafts({ ...drafts, [policy.id]: { ...draft, locked: event.target.checked, enabled: event.target.checked ? true : draft.enabled } })}
-                    />
-                    <span>Mandatory for enrolled clients</span>
-                  </label>
                   <textarea
                     className="policyRuleText"
                     value={draft.natural_language_rule}
-                    onChange={(event) => setDrafts({ ...drafts, [policy.id]: { ...draft, natural_language_rule: event.target.value, category: draft.category || categoryForRule(event.target.value) } })}
+                    onChange={(event) => setDrafts({ ...drafts, [policy.id]: { ...draft, natural_language_rule: event.target.value, category: draft.category || selectedCategory } })}
                     aria-label={`${policy.name} rule`}
                   />
                   <button type="button" onClick={() => save(draft)}>Save policy</button>
@@ -164,7 +177,7 @@ export function PolicyManager({ apiUrl, policies, organizationSlug }: { apiUrl: 
               );
             })}
           </section>
-        ))}
+        ) : null}
       </div>
       <button className="policyFab" type="button" onClick={() => setIsCreating(true)} aria-label="Create policy">
         <Plus size={30} />
@@ -175,7 +188,7 @@ export function PolicyManager({ apiUrl, policies, organizationSlug }: { apiUrl: 
             <div className="policyEditorHead">
               <div>
                 <strong id="create-policy-title">{summarizePolicyTitle(newRule)}</strong>
-                <span>New policy</span>
+                <span>New policy · {selectedCategory}</span>
               </div>
               <button className="policyDialogClose" type="button" onClick={() => setIsCreating(false)} aria-label="Close create policy">
                 <X size={22} />
@@ -204,14 +217,26 @@ const policyCategories = [
   "General"
 ];
 
-function groupPolicies(policies: Policy[], drafts: Record<string, Policy>) {
-  const groups = new Map<string, Policy[]>();
+function firstPolicyCategory(policies: Policy[]) {
+  return policyCategoryCounts(policies, {}).at(0)?.category ?? policyCategories[0];
+}
+
+function policyCategoryCounts(policies: Policy[], drafts: Record<string, Policy>) {
+  const counts = new Map<string, number>();
   for (const policy of policies) {
     const draft = drafts[policy.id] ?? policy;
     const category = draft.category || categoryForPolicy(draft);
-    groups.set(category, [...(groups.get(category) ?? []), policy]);
+    counts.set(category, (counts.get(category) ?? 0) + 1);
   }
-  return [...groups.entries()].sort(([a], [b]) => policyCategories.indexOf(a) - policyCategories.indexOf(b));
+  const categories = counts.size > 0 ? [...counts.entries()] : [[policyCategories[0], 0] as [string, number]];
+  return categories
+    .map(([category, count]) => ({ category, count }))
+    .sort((a, b) => categorySortIndex(a.category) - categorySortIndex(b.category) || a.category.localeCompare(b.category));
+}
+
+function categorySortIndex(category: string) {
+  const index = policyCategories.indexOf(category);
+  return index === -1 ? Number.MAX_SAFE_INTEGER : index;
 }
 
 function policyEndpoint(url: string, organizationSlug?: string) {
@@ -219,6 +244,11 @@ function policyEndpoint(url: string, organizationSlug?: string) {
   const parsed = new URL(url);
   parsed.searchParams.set("organizationSlug", organizationSlug);
   return parsed.toString();
+}
+
+function policyTriggersHref(organizationSlug: string | undefined, policyName: string) {
+  const base = organizationSlug ? `/${encodeURIComponent(organizationSlug)}/triggers` : "/triggers";
+  return `${base}?policy=${encodeURIComponent(policyName)}`;
 }
 
 function count(value?: string | number) {

@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
-import { DashboardPage } from "../DashboardPage";
+import { redirect } from "next/navigation";
 
 export default async function CloudOnboarding() {
   const slug = (await cookies()).get("openleash_onboarding_org")?.value;
-  return <DashboardPage initialTab="setup" tenantSlug={slug || undefined} />;
+  redirect(slug ? `/${encodeURIComponent(slug)}` : "/");
 }

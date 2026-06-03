@@ -25,7 +25,5 @@ export default async function TenantDashboard({ params }: { params: Promise<{ sl
   const { slug } = await params;
   const organization = await readOrganization(slug);
   if (!organization) redirect("/");
-  const setupCompleted = organization.setupCompleted ?? organization.setup_completed ?? true;
-  if (!setupCompleted) redirect("/onboarding");
   return <DashboardPage tenantSlug={slug} />;
 }

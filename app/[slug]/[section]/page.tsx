@@ -7,6 +7,7 @@ const sectionTabs: Record<string, DashboardTab> = {
   deployment: "deployment",
   "external-agents": "external-agents",
   identity: "identity",
+  logs: "logs",
   mcps: "mcps",
   policies: "policies",
   settings: "settings",
@@ -32,5 +33,14 @@ export default async function TenantSection({
   const normalized = Object.fromEntries(
     Object.entries(query ?? {}).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value])
   );
-  return <DashboardPage initialTab={initialTab} triggerSearchParams={initialTab === "triggers" ? normalized : undefined} usageSearchParams={initialTab === "usage" ? normalized : undefined} tenantSlug={slug} />;
+  return (
+    <DashboardPage
+      initialTab={initialTab}
+      triggerSearchParams={initialTab === "triggers" ? normalized : undefined}
+      logsSearchParams={initialTab === "logs" ? normalized : undefined}
+      usageSearchParams={initialTab === "usage" ? normalized : undefined}
+      settingsSearchParams={initialTab === "settings" || initialTab === "setup" ? normalized : undefined}
+      tenantSlug={slug}
+    />
+  );
 }

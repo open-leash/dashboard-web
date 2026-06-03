@@ -36,9 +36,8 @@ export default async function CloudCallbackPage({
   const jar = await cookies();
   jar.set("openleash_dashboard_token", token, { path: "/", sameSite: "lax", maxAge: 60 * 60 * 24 * 14 });
   const slug = payload.organization?.slug || first(params.organizationSlug) || "openleash";
-  const setupCompleted = payload.organization?.setupCompleted ?? payload.organization?.setup_completed ?? false;
-  if (!setupCompleted) jar.set("openleash_onboarding_org", slug, { path: "/", sameSite: "lax", maxAge: 60 * 60 * 24 });
-  redirect((safeLocalPath(first(params.next)) || (setupCompleted ? `/${encodeURIComponent(slug)}` : "/onboarding")) as any);
+  jar.set("openleash_onboarding_org", slug, { path: "/", sameSite: "lax", maxAge: 60 * 60 * 24 });
+  redirect((safeLocalPath(first(params.next)) || `/${encodeURIComponent(slug)}`) as any);
 }
 
 function first(value: string | string[] | undefined) {
