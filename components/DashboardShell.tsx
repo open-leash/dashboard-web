@@ -355,6 +355,8 @@ const supportedAgentProducts = [
   { key: "antigravity", displayName: "Antigravity", kind: "antigravity" }
 ];
 
+const hiddenOverviewAgentKeys = new Set(["openclaw", "nanoclaw"]);
+
 const avatarPalette = [
   { bg: "#fbe6c1", fg: "#8a5a1d" },
   { bg: "#dbe5fb", fg: "#2a44a6" },
@@ -2296,6 +2298,7 @@ function aggregateAgents(agents: Overview["agents"]) {
   }>();
   for (const agent of agents) {
     const key = agentProductKey(agent);
+    if (hiddenOverviewAgentKeys.has(key)) continue;
     const current = grouped.get(key) ?? {
       key,
       displayName: agentProductName(agent),
@@ -2331,6 +2334,7 @@ function overviewAgents(agents: Overview["agents"], users: UserRow[]) {
     const endpointCount = Math.max(hostnames.length, numeric(user.endpoint_count));
     for (const agentName of detectedAgents) {
       const key = agentProductKey({ kind: agentName, display_name: agentName } as Overview["agents"][number]);
+      if (hiddenOverviewAgentKeys.has(key)) continue;
       const current = byKey.get(key) ?? {
         key,
         displayName: agentProductName({ kind: agentName, display_name: agentName } as Overview["agents"][number]),
@@ -2386,7 +2390,7 @@ function agentProductKey(agent: Overview["agents"][number]) {
   if (text.includes("gemini")) return "gemini";
   if (text.includes("windsurf")) return "windsurf";
   if (text.includes("aider")) return "aider";
-  return agent.kind || agent.display_name.toLowerCase();
+  return (agent.kind || agent.display_name || "unknown").toLowerCase();
 }
 
 function agentProductName(agent: Overview["agents"][number]) {
