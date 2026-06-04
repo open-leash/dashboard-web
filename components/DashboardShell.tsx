@@ -349,7 +349,7 @@ const supportedAgentProducts = [
   { key: "claude-code", displayName: "Claude Code", kind: "claude-code" },
   { key: "openai-codex", displayName: "OpenAI Codex", kind: "codex" },
   { key: "cline", displayName: "Cline", kind: "cline" },
-  { key: "opencode", displayName: "opencode", kind: "opencode" },
+  { key: "opencode", displayName: "OpenCode", kind: "opencode" },
   { key: "cursor", displayName: "Cursor", kind: "cursor" },
   { key: "gemini", displayName: "Google Gemini CLI", kind: "gemini" },
   { key: "antigravity", displayName: "Antigravity", kind: "antigravity" }
@@ -2398,7 +2398,7 @@ function agentProductName(agent: Overview["agents"][number]) {
   if (key === "claude-code") return "Claude Code";
   if (key === "openai-codex") return "OpenAI Codex";
   if (key === "cline") return "Cline";
-  if (key === "opencode") return "opencode";
+  if (key === "opencode") return "OpenCode";
   if (key === "cursor") return "Cursor";
   if (key === "gemini") return "Gemini";
   if (key === "antigravity") return "Antigravity";
