@@ -634,6 +634,89 @@ a { color: inherit; text-decoration: none; }
   font-weight: 850;
 }
 
+.rosterPanel {
+  display: grid;
+  gap: 14px;
+}
+
+.rosterToolbar {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) 180px 120px;
+  gap: 12px;
+  align-items: end;
+  padding: 14px;
+  background: var(--panel-soft);
+  border-radius: 18px;
+}
+
+.rosterSearch {
+  min-width: 0;
+}
+
+.rosterSearch span,
+.compactSelect span {
+  display: block;
+  margin: 0 0 7px 2px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.rosterSearch input,
+.compactSelect select {
+  width: 100%;
+  height: 46px;
+  padding: 0 14px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 750;
+}
+
+.rosterSearch input:focus,
+.compactSelect select:focus {
+  outline: 2px solid rgba(111, 140, 242, .3);
+  border-color: rgba(111, 140, 242, .48);
+}
+
+.rosterSummary {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.pager {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  padding-top: 6px;
+}
+
+.pager button {
+  padding: 10px 15px;
+  background: var(--ink);
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 850;
+}
+
+.pager button:disabled {
+  cursor: default;
+  opacity: .34;
+}
+
+.pager span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .pill.mini {
   padding: 7px 11px;
   color: var(--muted);
@@ -3467,7 +3550,8 @@ input:focus, textarea:focus, select:focus {
 	  .setupCompanyInline,
 	  .setupCompanyFields,
 	  .setupTaskGrid,
-	  .mdmGrid.compact {
+	  .mdmGrid.compact,
+    .rosterToolbar {
 	    grid-template-columns: 1fr;
 	  }
   .setupTasksHead {
@@ -3641,7 +3725,7 @@ input:focus, textarea:focus, select:focus {
   .topbar { justify-content: flex-start; flex-wrap: wrap; }
   .nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stat-row, .cards, .identityGrid, .overviewLeaderGrid, .agentActivityGrid { grid-template-columns: 1fr; }
-  .triggerFilters, .metaGrid, .mdmGrid, .fieldGrid { grid-template-columns: 1fr; }
+  .triggerFilters, .metaGrid, .mdmGrid, .fieldGrid, .rosterToolbar { grid-template-columns: 1fr; }
   .deployHero { flex-direction: column; }
   .card-title, .card-title .right, .row-card { align-items: flex-start; flex-direction: column; }
   .blocked-count { width: auto; text-align: left; }

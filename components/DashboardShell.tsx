@@ -38,6 +38,7 @@ import { LiveDate } from "./LiveDate";
 import { DashboardSignOutButton, DashboardUserChip } from "./DashboardAuth";
 import { DashboardSettingsPane, SettingsTree, TokensSettingsPanel } from "./DashboardSettings";
 import { AgentInventory, type AgentInventoryCard } from "./AgentInventory";
+import { UserRoster, type UserRosterItem } from "./UserRoster";
 
 export type Overview = {
   metrics: {
@@ -847,10 +848,7 @@ function UsersPage({ users, mode, basePath, identitySource }: { users: UserRow[]
           </div>
         </div>
         <div className="divider" />
-        <div className="userRoster">
-          {users.slice(0, 1).map((user) => <UserRosterRow key={user.id} user={user} basePath={basePath} />)}
-          {users.length === 0 && <Empty text="No local user has checked in yet." />}
-        </div>
+        <UserRoster users={users.slice(0, 1).map((user) => userRosterItem(user, basePath))} />
       </>
     );
   }
@@ -898,45 +896,28 @@ function UsersPage({ users, mode, basePath, identitySource }: { users: UserRow[]
         </div>
       </div>
 
-      <div className="userRoster">
-        {users.map((user) => <UserRosterRow key={user.id} user={user} basePath={basePath} />)}
-        {users.length === 0 && <Empty text="No users synced yet." />}
-      </div>
+      <UserRoster users={users.map((user) => userRosterItem(user, basePath))} />
     </>
   );
 }
 
-function UserRosterRow({ user, basePath }: { user: UserRow; basePath: string }) {
+function userRosterItem(user: UserRow, basePath: string): UserRosterItem {
   const endpointCount = Number(user.endpoint_count ?? 0);
-  const agentCount = Number(user.agent_count ?? 0);
-  const clientInstalled = endpointCount > 0;
-  const status = clientInstalled ? "covered" : "not-deployed";
   const agents = Array.isArray(user.agents) ? user.agents : [];
   const hostnames = Array.isArray(user.hostnames) ? user.hostnames : [];
-  const avatar = avatarFor(user.display_name);
-  return (
-    <article className="user-row">
-      <span className="avatar-sm user-avatar" style={{ background: avatar.bg, color: avatar.fg }}>{initials(user.display_name)}</span>
-      <div className="user-main">
-        <div className="user-name">{user.display_name}</div>
-        <div className="user-meta">{user.email} · {user.department ?? departmentFor(user.email)} · {user.hr_title ?? titleFor(user.role)}</div>
-      </div>
-      <div className="coverage-stack">
-        <span className={`coverage ${status}`}><span className="dot" />{clientInstalled ? "client active" : "client missing"}</span>
-        <span className="coverage-note">{clientInstalled ? "OpenLeash client checked in" : "waiting for client install"}</span>
-      </div>
-      <div className="agent-icons">
-        {agents.slice(0, 4).map((name) => <AgentLogo key={name} name={name} fallback={initials(name).slice(0, 1)} size="small" />)}
-        {agents.length === 0 && <span className="mutedText">No agents</span>}
-      </div>
-      <div className="endpoint-cell">
-        <strong>{endpointCount}</strong>
-        <span>{hostnames[0] ?? "No endpoint"}</span>
-      </div>
-      <div className="last-seen">{user.lastSeenLabel ?? (user.last_seen_at ? relativeTime(user.last_seen_at) : "Never")}</div>
-      <Link className="pill action-pill userLogsLink" href={`${routeHref(basePath, "/logs")}?userId=${encodeURIComponent(user.id)}` as any}>Logs</Link>
-    </article>
-  );
+  return {
+    id: user.id,
+    name: user.display_name,
+    email: user.email,
+    department: user.department ?? departmentFor(user.email),
+    title: user.hr_title ?? titleFor(user.role),
+    endpointCount,
+    agentCount: Number(user.agent_count ?? 0),
+    agents,
+    hostnames,
+    lastSeen: user.lastSeenLabel ?? (user.last_seen_at ? relativeTime(user.last_seen_at) : "Never"),
+    logsHref: `${routeHref(basePath, "/logs")}?userId=${encodeURIComponent(user.id)}`
+  };
 }
 
 function identitySourceLabel(onboardingData: OnboardingData | null | undefined, users: UserRow[]) {
