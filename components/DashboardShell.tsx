@@ -252,6 +252,10 @@ export type SkillsData = {
     status: string;
     risk_score: string | number;
     reasons?: Array<{ reason: string; quote?: string }>;
+    content?: string | null;
+    content_preview?: string | null;
+    purpose_summary?: string | null;
+    content_updated_at?: string | null;
     updated_at: string;
     user_name?: string | null;
     user_email?: string | null;
@@ -263,6 +267,8 @@ export type SkillsData = {
     status: string;
     risk_score: string | number;
     reasons?: Array<{ reason: string; quote?: string }>;
+    content_preview?: string | null;
+    purpose_summary?: string | null;
     created_at: string;
     user_name?: string | null;
   }>;
@@ -1283,6 +1289,7 @@ function SkillsPage({ data, mode, basePath, filters }: { data?: SkillsData | nul
   const selectedView = filters.view === "skills" ? "skills" : "users";
   const query = (filters.q ?? "").trim();
   const filteredSkills = filterSkills(skills, query);
+  const selectedSkill = skills.find((skill) => skill.id === filters.skillId) ?? filteredSkills[0];
   const skillHref = (view: "users" | "skills") => {
     const params = new URLSearchParams();
     if (view !== "users") params.set("view", view);
@@ -1331,7 +1338,9 @@ function SkillsPage({ data, mode, basePath, filters }: { data?: SkillsData | nul
                   <div className="skillAgentLine" key={`${group.key}-${agent.agentName}`}>
                     <AgentLogo name={agent.agentName} fallback={initials(agent.agentName).slice(0, 1)} size="small" />
                     <b>{agent.agentName}</b>
-                    <span>{agent.skills.slice(0, 7).map((skill) => skill.skill_name).join(", ")}{agent.skills.length > 7 ? ` +${agent.skills.length - 7}` : ""}</span>
+                    <span>{agent.skills.slice(0, 7).map((skill, index) => (
+                      <Link key={skill.id} href={skillDetailHref(basePath, selectedView, query, skill.id)}>{index > 0 ? `, ${skill.skill_name}` : skill.skill_name}</Link>
+                    ))}{agent.skills.length > 7 ? ` +${agent.skills.length - 7}` : ""}</span>
                   </div>
                 ))}
               </div>
@@ -1340,13 +1349,13 @@ function SkillsPage({ data, mode, basePath, filters }: { data?: SkillsData | nul
         ))}
 
         {selectedView === "skills" && skillGroups.map((group) => (
-          <article className="skillItemRow" key={group.key}>
+          <Link className="skillItemRow" key={group.key} href={skillDetailHref(basePath, selectedView, query, group.primarySkill.id)}>
             <AgentLogo name={group.agentName} fallback={initials(group.agentName).slice(0, 1)} size="small" />
             <div className="skillRowMain">
               <div className="skillRowHead">
                 <div>
                   <strong>{group.name}</strong>
-                  <span>{group.agentName} · {group.projectLabel}</span>
+                  <span>{group.summary || group.agentName} · {group.projectLabel}</span>
                 </div>
                 <em>{skillStatusLabel(group.status)}</em>
               </div>
@@ -1360,11 +1369,12 @@ function SkillsPage({ data, mode, basePath, filters }: { data?: SkillsData | nul
                 {group.users.length > 8 && <span className="skillMore">+{group.users.length - 8}</span>}
               </div>
             </div>
-          </article>
+          </Link>
         ))}
 
         {filteredSkills.length === 0 && <Empty text={query ? "No skills match this search." : "No protected skills detected yet."} />}
       </div>
+      {selectedSkill && <SkillDetailPanel skill={selectedSkill} related={skills.filter((skill) => skill.skill_name === selectedSkill.skill_name && skill.agent_name === selectedSkill.agent_name)} />}
     </>
   );
 }
@@ -1381,8 +1391,17 @@ function filterSkills(skills: SkillRow[], query: string) {
     skill.user_email,
     skill.project_path,
     skill.skill_path,
+    skill.purpose_summary,
     skill.scope
   ].filter(Boolean).join("\n").toLowerCase().includes(needle));
+}
+
+function skillDetailHref(basePath: string, view: "users" | "skills", query: string, skillId: string) {
+  const params = new URLSearchParams();
+  if (view !== "users") params.set("view", view);
+  if (query) params.set("q", query);
+  params.set("skillId", skillId);
+  return `${dashboardHref(basePath, "/skills")}?${params.toString()}` as any;
 }
 
 function groupSkillsByUser(skills: SkillRow[]) {
@@ -1404,7 +1423,7 @@ function groupSkillsByUser(skills: SkillRow[]) {
 }
 
 function groupSkillsByName(skills: SkillRow[]) {
-  const groups = new Map<string, { key: string; name: string; agentName: string; projectLabel: string; status: string; users: Array<{ name: string; email: string }>; updatedAt: string }>();
+  const groups = new Map<string, { key: string; name: string; agentName: string; projectLabel: string; status: string; summary?: string | null; users: Array<{ name: string; email: string }>; updatedAt: string; primarySkill: SkillRow }>();
   for (const skill of skills) {
     const key = `${skill.agent_name}:${skill.skill_name}:${projectTag(skill.project_path ?? undefined) ?? "user"}`.toLowerCase();
     const group = groups.get(key) ?? {
@@ -1413,18 +1432,118 @@ function groupSkillsByName(skills: SkillRow[]) {
       agentName: skill.agent_name,
       projectLabel: projectTag(skill.project_path ?? undefined) ?? "User-level",
       status: skill.status,
+      summary: skill.purpose_summary,
       users: [],
-      updatedAt: skill.updated_at
+      updatedAt: skill.updated_at,
+      primarySkill: skill
     };
     const userName = skill.user_name || skill.user_email || "Unknown user";
     if (!group.users.some((user) => user.name === userName && user.email === (skill.user_email ?? ""))) {
       group.users.push({ name: userName, email: skill.user_email ?? "" });
     }
-    if (new Date(skill.updated_at).getTime() > new Date(group.updatedAt).getTime()) group.updatedAt = skill.updated_at;
+    if (new Date(skill.updated_at).getTime() > new Date(group.updatedAt).getTime()) {
+      group.updatedAt = skill.updated_at;
+      group.primarySkill = skill;
+      group.summary = skill.purpose_summary ?? group.summary;
+    }
     if (skill.status === "suspicious") group.status = skill.status;
     groups.set(key, group);
   }
   return Array.from(groups.values()).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+}
+
+function SkillDetailPanel({ skill, related }: { skill: SkillRow; related: SkillRow[] }) {
+  const content = skill.content || skill.content_preview || "";
+  const relatedUsers = related
+    .map((item) => item.user_name || item.user_email || "Unknown user")
+    .filter((value, index, all) => all.indexOf(value) === index);
+  return (
+    <section className="skillDetailPanel">
+      <div className="skillDetailHead">
+        <div>
+          <span className="eyebrow">{skill.agent_name}</span>
+          <h3>{skill.skill_name}</h3>
+          <p>{skill.purpose_summary || "Skill purpose not summarized yet"}</p>
+        </div>
+        <span className={`tag ${skill.status === "suspicious" ? "blocked" : "allowed"}`}><span className="dot" />{skillStatusLabel(skill.status)}</span>
+      </div>
+      <div className="skillDetailMeta">
+        <div><span>Last update</span><strong>{relativeTime(skill.content_updated_at || skill.updated_at)}</strong></div>
+        <div><span>Scope</span><strong>{skill.scope}</strong></div>
+        <div><span>Users</span><strong>{relatedUsers.length}</strong></div>
+        <div><span>Risk</span><strong>{numeric(skill.risk_score)}</strong></div>
+      </div>
+      <div className="filePathPill wide" title={skill.skill_path}><span>Path</span><code>{skill.skill_path}</code></div>
+      {content ? <MarkdownDocument content={content} /> : <Empty text="Skill content has not synced yet." />}
+    </section>
+  );
+}
+
+function MarkdownDocument({ content }: { content: string }) {
+  const lines = content.split(/\r?\n/);
+  const blocks: Array<{ type: "heading" | "subheading" | "list" | "code" | "paragraph"; text: string; items?: string[] }> = [];
+  let paragraph: string[] = [];
+  let list: string[] = [];
+  let code: string[] = [];
+  let inCode = false;
+  const flushParagraph = () => {
+    if (paragraph.length) blocks.push({ type: "paragraph", text: paragraph.join(" ") });
+    paragraph = [];
+  };
+  const flushList = () => {
+    if (list.length) blocks.push({ type: "list", text: "", items: list });
+    list = [];
+  };
+  const flushCode = () => {
+    if (code.length) blocks.push({ type: "code", text: code.join("\n") });
+    code = [];
+  };
+  for (const line of lines) {
+    if (/^```/.test(line)) {
+      if (inCode) flushCode();
+      else {
+        flushParagraph();
+        flushList();
+      }
+      inCode = !inCode;
+      continue;
+    }
+    if (inCode) {
+      code.push(line);
+      continue;
+    }
+    if (/^##\s+/.test(line)) {
+      flushParagraph();
+      flushList();
+      blocks.push({ type: "subheading", text: line.replace(/^##\s+/, "") });
+    } else if (/^#\s+/.test(line)) {
+      flushParagraph();
+      flushList();
+      blocks.push({ type: "heading", text: line.replace(/^#\s+/, "") });
+    } else if (/^\s*[-*]\s+/.test(line)) {
+      flushParagraph();
+      list.push(line.replace(/^\s*[-*]\s+/, ""));
+    } else if (!line.trim()) {
+      flushParagraph();
+      flushList();
+    } else {
+      paragraph.push(line.trim());
+    }
+  }
+  flushParagraph();
+  flushList();
+  flushCode();
+  return (
+    <article className="markdownViewer">
+      {blocks.slice(0, 160).map((block, index) => {
+        if (block.type === "heading") return <h2 key={index}>{block.text}</h2>;
+        if (block.type === "subheading") return <h4 key={index}>{block.text}</h4>;
+        if (block.type === "list") return <ul key={index}>{block.items?.map((item, itemIndex) => <li key={itemIndex}>{item}</li>)}</ul>;
+        if (block.type === "code") return <pre key={index}><code>{block.text}</code></pre>;
+        return <p key={index}>{block.text}</p>;
+      })}
+    </article>
+  );
 }
 
 function sortSkills(skills: SkillRow[]) {
