@@ -440,6 +440,7 @@ export function DashboardShell({
   const metrics = overview.metrics;
   const recent = overview.recent;
   const agents = overview.agents;
+  const visibleAgentCount = aggregateAgents(agents).length;
   const policies = overview.policies;
   const usageSessions = overview.usage?.sessions ?? sessionsFromAgents(agents);
   const users = overview.users?.length ? overview.users : usersFromAgents(agents);
@@ -452,7 +453,7 @@ export function DashboardShell({
 
   return (
     <div className={personal ? "app personalDashboard" : "app"}>
-      <Sidebar tab={tab} agentsCount={agents.length} usersCount={users.length} basePath={basePath} mode={dashboardMode} extensionTabs={extensionTabs} settingsItem={settingsSearchParams?.item} />
+      <Sidebar tab={tab} agentsCount={visibleAgentCount} usersCount={users.length} basePath={basePath} mode={dashboardMode} extensionTabs={extensionTabs} settingsItem={settingsSearchParams?.item} />
       <main className="main">
         {tab === "overview" && needsIdentityProvider && <IdentityProviderNotice basePath={basePath} />}
         {tab === "overview" && needsSetup && onboardingData && <OrganizationSetupPanel apiUrl={apiUrl} onboardingData={onboardingData} tenantDomain={tenantDomain} basePath={basePath} organizationSlug={tenantSlug} />}
