@@ -1486,8 +1486,8 @@ function skillDetailHref(basePath: string, view: "users" | "skills", query: stri
   const params = new URLSearchParams();
   if (view !== "users") params.set("view", view);
   if (query) params.set("q", query);
-  const suffix = params.toString();
-  return `${dashboardHref(basePath, `/skills/${encodeURIComponent(skillId)}`)}${suffix ? `?${suffix}` : ""}` as any;
+  params.set("skillId", skillId);
+  return `${dashboardHref(basePath, "/skills")}?${params.toString()}` as any;
 }
 
 function groupSkillsByUser(skills: SkillRow[]) {
