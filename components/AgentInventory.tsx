@@ -72,7 +72,7 @@ export function AgentInventory({ agents }: { agents: AgentInventoryCard[] }) {
               ))}
               {agent.events.length === 0 && <span className="muted-small">No notable actions captured yet.</span>}
             </div>
-            <span className="tag allowed"><span className="dot" />blocking</span>
+            <span className="tag allowed"><span className="dot" />Protected</span>
           </article>
         ))}
       </div>
