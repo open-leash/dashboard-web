@@ -534,7 +534,6 @@ function Sidebar({
         <NavButton active={tab === "logs"} href={dashboardHref(basePath, "/logs")} icon={<FileClock />} label="Logs" />
         <NavButton active={tab === "agents"} href={dashboardHref(basePath, "/agents")} icon={<Bot />} label={personal ? "My agents" : "Agents"} badge={agentsCount || undefined} />
         {!personal && <NavButton active={tab === "users"} href={dashboardHref(basePath, "/users")} icon={<Users />} label="Users" badge={usersCount || undefined} />}
-        {!personal && <NavButton active={tab === "external-agents"} href={dashboardHref(basePath, "/external-agents")} icon={<Database />} label="SaaS agents" />}
         <NavButton active={tab === "mcps"} href={dashboardHref(basePath, "/mcps")} icon={<Database />} label="MCPs" />
         <NavButton active={tab === "skills"} href={dashboardHref(basePath, "/skills")} icon={<Code2 />} label="Skills" />
         <NavButton active={tab === "policies"} href={dashboardHref(basePath, "/policies")} icon={<ShieldCheck />} label={personal ? "Guardrails" : "Policies"} />
