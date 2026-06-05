@@ -37,6 +37,7 @@ import { OrganizationSetupPanel } from "./OrganizationSetupPanel";
 import { LiveDate } from "./LiveDate";
 import { DashboardSignOutButton, DashboardUserChip } from "./DashboardAuth";
 import { DashboardSettingsPane, SettingsTree, TokensSettingsPanel } from "./DashboardSettings";
+import { AgentInventory, type AgentInventoryCard } from "./AgentInventory";
 
 export type Overview = {
   metrics: {
@@ -957,6 +958,7 @@ function providerLabel(provider?: string | null) {
 function AgentsPage({ agents, recent, mode, basePath }: { agents: Overview["agents"]; recent: Overview["recent"]; mode: DashboardMode; basePath: string }) {
   const groupedAgents = aggregateAgents(agents);
   const personal = mode === "personal";
+  const cards = groupedAgents.map((agent) => agentInventoryCard(agent, agents, recent, basePath));
   return (
     <>
       <Topbar />
@@ -967,42 +969,62 @@ function AgentsPage({ agents, recent, mode, basePath }: { agents: Overview["agen
         </div>
       </div>
       <div className="divider" />
-      <div className="cards">
-        {groupedAgents.map((agent, index) => {
-          const mark = agentMark(agent.displayName, index);
-          const events = agentEvents(agent, recent).slice(0, 4);
-          return (
-            <article key={agent.key} className="agent-card">
-              <div className="agent-head">
-                <AgentLogo name={agent.displayName} fallback={mark.letter} size="large" />
-                <div>
-                  <div className="agent-name">{agent.displayName}</div>
-                  <div className="agent-vendor">{agent.kind}{agent.version ? ` · ${agent.version}` : ""}</div>
-                </div>
-              </div>
-              <div className="agent-stats">
-                <div className="agent-stat"><div className="v">{agent.users}</div><div className="l">{personal ? "Profiles" : "Users"}</div></div>
-                <div className="agent-stat"><div className="v">{agent.installs}</div><div className="l">Installs</div></div>
-              </div>
-              <div className="agent-event-list">
-                {events.map((event) => (
-                  <Link className="agent-event-line" href={routeHref(basePath, `/triggers/${event.id}`)} key={event.id}>
-                    <div className="agent-event-project">{projectTag(event.project_path) ?? "No project"}</div>
-                    <strong>{agentActionTitle(event)}</strong>
-                    <span>{agentActionContext(event)}</span>
-                    <em>{relativeTime(event.created_at)}</em>
-                  </Link>
-                ))}
-                {events.length === 0 && <span className="muted-small">No notable actions captured yet.</span>}
-              </div>
-              <span className="tag allowed"><span className="dot" />blocking</span>
-            </article>
-          );
-        })}
-        {groupedAgents.length === 0 && <Empty text="No agents have checked in." />}
-      </div>
+      {cards.length > 0 ? <AgentInventory agents={cards} /> : <Empty text="No agents have checked in." />}
     </>
   );
+}
+
+function agentInventoryCard(
+  agent: ReturnType<typeof aggregateAgents>[number],
+  allAgents: Overview["agents"],
+  recent: Overview["recent"],
+  basePath: string
+): AgentInventoryCard {
+  const events = agentEvents(agent, recent).slice(0, 4).map((event) => ({
+    id: event.id,
+    href: routeHref(basePath, `/triggers/${event.id}`),
+    project: projectTag(event.project_path) ?? "No project",
+    title: agentActionTitle(event),
+    context: agentActionContext(event),
+    when: relativeTime(event.created_at)
+  }));
+  const users = usersForAgent(agent, allAgents, basePath);
+  return {
+    key: agent.key,
+    displayName: agent.displayName,
+    kind: agent.kind,
+    version: agent.version,
+    users: agent.users,
+    installs: agent.installs,
+    events,
+    usersList: users
+  };
+}
+
+function usersForAgent(agent: ReturnType<typeof aggregateAgents>[number], allAgents: Overview["agents"], basePath: string) {
+  const grouped = new Map<string, { key: string; name: string; hostname: string; lastSeen: string; lastSeenRaw: string; sessions: number; logsHref: string }>();
+  for (const runtime of allAgents) {
+    if (agentProductKey(runtime) !== agent.key) continue;
+    const name = runtime.user_name || "Unknown user";
+    const hostname = runtime.hostname || "";
+    const key = `${name.toLowerCase()}|${hostname}`;
+    const current = grouped.get(key) ?? {
+      key,
+      name,
+      hostname,
+      lastSeen: runtime.last_seen_at ? relativeTime(runtime.last_seen_at) : "Never",
+      lastSeenRaw: runtime.last_seen_at,
+      sessions: 0,
+      logsHref: `${routeHref(basePath, "/logs")}?agent=${encodeURIComponent(runtime.display_name || runtime.kind)}&user=${encodeURIComponent(name)}` as string
+    };
+    current.sessions += runtime.sessions?.length ?? 0;
+    if (runtime.last_seen_at && new Date(runtime.last_seen_at).getTime() > new Date(current.lastSeenRaw || 0).getTime()) {
+      current.lastSeenRaw = runtime.last_seen_at;
+      current.lastSeen = relativeTime(runtime.last_seen_at);
+    }
+    grouped.set(key, current);
+  }
+  return Array.from(grouped.values()).sort((a, b) => new Date(b.lastSeenRaw || 0).getTime() - new Date(a.lastSeenRaw || 0).getTime());
 }
 
 function agentEvents(agent: ReturnType<typeof aggregateAgents>[number], recent: Overview["recent"]) {
