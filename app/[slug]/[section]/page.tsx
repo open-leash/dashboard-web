@@ -27,12 +27,15 @@ export default async function TenantSection({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { slug, section } = await params;
-  const initialTab = sectionTabs[section];
-  if (!initialTab) notFound();
   const query = await searchParams;
   const normalized = Object.fromEntries(
     Object.entries(query ?? {}).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value])
   );
+  if (slug === "skills") {
+    return <DashboardPage initialTab="skills" skillsSearchParams={{ ...normalized, skillId: section }} />;
+  }
+  const initialTab = sectionTabs[section];
+  if (!initialTab) notFound();
   return (
     <DashboardPage
       initialTab={initialTab}

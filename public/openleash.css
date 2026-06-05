@@ -1366,6 +1366,18 @@ a { color: inherit; text-decoration: none; }
   background: var(--muted);
 }
 
+.tag.allowed {
+  background: #e9f8f1;
+  color: #11795f;
+}
+.tag.blocked {
+  background: #fdeced;
+  color: #bd2d3f;
+}
+.tag.asked {
+  background: #fff5dd;
+  color: #9a6a16;
+}
 .tag.allowed .dot { background: var(--good); }
 .tag.blocked .dot { background: var(--bad); }
 .tag.asked .dot { background: var(--warn); }
@@ -1903,12 +1915,31 @@ a { color: inherit; text-decoration: none; }
 }
 
 .skillDetailPanel {
-  margin-top: 22px;
   padding: 24px;
   background: #fff;
   border: 1px solid rgba(15, 17, 21, .08);
   border-radius: 22px;
   box-shadow: 0 22px 60px rgba(24, 31, 53, .08);
+}
+
+.skillDetailPageHead {
+  align-items: flex-start;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  margin-bottom: 14px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.backLink:hover {
+  color: var(--ink);
 }
 
 .skillDetailHead {

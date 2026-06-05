@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import {
   Activity,
   AlertTriangle,
+  ArrowLeft,
   Ban,
   Bell,
   Bot,
@@ -1289,7 +1290,6 @@ function SkillsPage({ data, mode, basePath, filters }: { data?: SkillsData | nul
   const selectedView = filters.view === "skills" ? "skills" : "users";
   const query = (filters.q ?? "").trim();
   const filteredSkills = filterSkills(skills, query);
-  const selectedSkill = skills.find((skill) => skill.id === filters.skillId) ?? filteredSkills[0];
   const skillHref = (view: "users" | "skills") => {
     const params = new URLSearchParams();
     if (view !== "users") params.set("view", view);
@@ -1297,6 +1297,16 @@ function SkillsPage({ data, mode, basePath, filters }: { data?: SkillsData | nul
     const suffix = params.toString();
     return `${dashboardHref(basePath, "/skills")}${suffix ? `?${suffix}` : ""}` as any;
   };
+  const selectedSkill = skills.find((skill) => skill.id === filters.skillId);
+  if (filters.skillId) {
+    return (
+      <SkillDetailPage
+        skill={selectedSkill}
+        related={selectedSkill ? skills.filter((skill) => skill.skill_name === selectedSkill.skill_name && skill.agent_name === selectedSkill.agent_name) : []}
+        backHref={skillHref(selectedView)}
+      />
+    );
+  }
   const userGroups = groupSkillsByUser(filteredSkills);
   const skillGroups = groupSkillsByName(filteredSkills);
   return (
@@ -1305,7 +1315,7 @@ function SkillsPage({ data, mode, basePath, filters }: { data?: SkillsData | nul
       <div className="page-head">
         <div>
           <h1>Skills</h1>
-          <p className="sub">{personal ? "Protected agent skills on this computer." : "Protected skills across users and local agents."}</p>
+          <p className="sub">{personal ? "Scanned agent skills on this computer." : "Scanned skills across users and local agents."}</p>
         </div>
       </div>
       <div className="divider" />
@@ -1329,7 +1339,7 @@ function SkillsPage({ data, mode, basePath, filters }: { data?: SkillsData | nul
               <div className="skillRowHead">
                 <div>
                   <strong>{group.name}</strong>
-                  <span>{group.email || `${group.skills.length} protected skills`}</span>
+                  <span>{group.email || `${group.skills.length} scanned skills`}</span>
                 </div>
                 <em>{group.skills.length} skills</em>
               </div>
@@ -1372,9 +1382,8 @@ function SkillsPage({ data, mode, basePath, filters }: { data?: SkillsData | nul
           </Link>
         ))}
 
-        {filteredSkills.length === 0 && <Empty text={query ? "No skills match this search." : "No protected skills detected yet."} />}
+        {filteredSkills.length === 0 && <Empty text={query ? "No skills match this search." : "No scanned skills detected yet."} />}
       </div>
-      {selectedSkill && <SkillDetailPanel skill={selectedSkill} related={skills.filter((skill) => skill.skill_name === selectedSkill.skill_name && skill.agent_name === selectedSkill.agent_name)} />}
     </>
   );
 }
@@ -1400,8 +1409,8 @@ function skillDetailHref(basePath: string, view: "users" | "skills", query: stri
   const params = new URLSearchParams();
   if (view !== "users") params.set("view", view);
   if (query) params.set("q", query);
-  params.set("skillId", skillId);
-  return `${dashboardHref(basePath, "/skills")}?${params.toString()}` as any;
+  const suffix = params.toString();
+  return `${dashboardHref(basePath, `/skills/${encodeURIComponent(skillId)}`)}${suffix ? `?${suffix}` : ""}` as any;
 }
 
 function groupSkillsByUser(skills: SkillRow[]) {
@@ -1450,6 +1459,23 @@ function groupSkillsByName(skills: SkillRow[]) {
     groups.set(key, group);
   }
   return Array.from(groups.values()).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+}
+
+function SkillDetailPage({ skill, related, backHref }: { skill?: SkillRow; related: SkillRow[]; backHref: any }) {
+  return (
+    <>
+      <Topbar />
+      <div className="page-head skillDetailPageHead">
+        <div>
+          <Link className="backLink" href={backHref}><ArrowLeft size={17} />Skills</Link>
+          <h1>{skill?.skill_name ?? "Skill not found"}</h1>
+          <p className="sub">{skill ? skill.purpose_summary || "Skill purpose not summarized yet" : "This skill was not found or no longer exists."}</p>
+        </div>
+      </div>
+      <div className="divider" />
+      {skill ? <SkillDetailPanel skill={skill} related={related} /> : <Empty text="No matching skill was found." />}
+    </>
+  );
 }
 
 function SkillDetailPanel({ skill, related }: { skill: SkillRow; related: SkillRow[] }) {
@@ -1551,7 +1577,7 @@ function sortSkills(skills: SkillRow[]) {
 }
 
 function skillStatusLabel(status: string) {
-  return status === "suspicious" ? "review" : "protected";
+  return status === "suspicious" ? "review" : "scanned";
 }
 
 function PoliciesPage({ apiUrl, policies, mode, tenantSlug }: { apiUrl: string; policies: Overview["policies"]; mode: DashboardMode; tenantSlug?: string }) {
