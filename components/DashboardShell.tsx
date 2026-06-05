@@ -1444,7 +1444,7 @@ function SkillsPage({ data, mode, basePath, filters }: { data?: SkillsData | nul
                   <strong>{group.name}</strong>
                   <span>{group.summary || group.agentName} · {group.projectLabel}</span>
                 </div>
-                <em>{skillStatusLabel(group.status)}</em>
+                <span className={`tag ${group.status === "suspicious" ? "blocked" : "allowed"}`}><span className="dot" />{skillStatusLabel(group.status)}</span>
               </div>
               <div className="skillPeople">
                 {group.users.slice(0, 8).map((user) => (

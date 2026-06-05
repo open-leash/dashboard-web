@@ -1937,7 +1937,7 @@ a { color: inherit; text-decoration: none; }
   min-width: 0;
 }
 .skillRowHead strong,
-.skillRowHead span {
+.skillRowHead > div > span {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1947,7 +1947,7 @@ a { color: inherit; text-decoration: none; }
   font-size: 17px;
   font-weight: 900;
 }
-.skillRowHead span {
+.skillRowHead > div > span {
   margin-top: 3px;
   color: var(--muted);
   font-size: 13px;
@@ -1962,6 +1962,9 @@ a { color: inherit; text-decoration: none; }
   font-size: 12px;
   font-style: normal;
   font-weight: 900;
+}
+.skillRowHead .tag {
+  flex: 0 0 auto;
 }
 .skillAgentGroups {
   display: grid;
