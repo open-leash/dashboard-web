@@ -621,10 +621,6 @@ a { color: inherit; text-decoration: none; }
   flex-direction: column;
 }
 
-.users-title {
-  margin-top: 34px;
-}
-
 .sync-pill {
   display: inline-flex;
   align-items: center;
@@ -636,7 +632,8 @@ a { color: inherit; text-decoration: none; }
 
 .rosterPanel {
   display: grid;
-  gap: 14px;
+  gap: 16px;
+  margin-top: 28px;
 }
 
 .rosterToolbar {
@@ -644,9 +641,10 @@ a { color: inherit; text-decoration: none; }
   grid-template-columns: minmax(260px, 1fr) 180px 120px;
   gap: 12px;
   align-items: end;
-  padding: 14px;
+  padding: 12px;
   background: var(--panel-soft);
-  border-radius: 18px;
+  border: 1px solid rgba(15, 17, 21, .06);
+  border-radius: 20px;
 }
 
 .rosterSearch {
@@ -665,11 +663,11 @@ a { color: inherit; text-decoration: none; }
 .rosterSearch input,
 .compactSelect select {
   width: 100%;
-  height: 46px;
-  padding: 0 14px;
+  height: 48px;
+  padding: 0 15px;
   background: #fff;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 14px;
   color: var(--ink);
   font: inherit;
   font-weight: 750;
@@ -903,11 +901,25 @@ a { color: inherit; text-decoration: none; }
   grid-template-columns: 44px minmax(220px, 1.2fr) minmax(160px, .8fr) minmax(120px, .5fr) minmax(130px, .6fr) 80px auto;
   gap: 16px;
   align-items: center;
-  padding: 17px 0;
-  border-top: 1px solid var(--line);
+  padding: 17px 14px;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  color: inherit;
 }
 
-.user-row:first-child { border-top: 0; }
+.user-row + .user-row { margin-top: 8px; }
+
+.user-row-clickable {
+  cursor: pointer;
+}
+
+.user-row-clickable:hover,
+.user-row-clickable:focus-visible {
+  background: #fff;
+  border-color: rgba(15, 17, 21, .08);
+  box-shadow: 0 14px 34px rgba(24, 31, 53, .07);
+  outline: none;
+}
 
 .userLogsLink {
   justify-self: end;
@@ -996,6 +1008,118 @@ a { color: inherit; text-decoration: none; }
 
 .last-seen {
   text-align: right;
+}
+
+.userDetailHead {
+  align-items: flex-start;
+}
+
+.userDetailIdentity {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.avatar-lg {
+  width: 62px;
+  height: 62px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  font-size: 18px;
+  font-weight: 950;
+}
+
+.userDetailGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.userDetailCard {
+  min-width: 0;
+  padding: 18px;
+  background: var(--panel-soft);
+  border: 1px solid rgba(15, 17, 21, .06);
+  border-radius: 20px;
+}
+
+.userDetailCard span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.userDetailCard strong {
+  display: block;
+  overflow: hidden;
+  margin-top: 8px;
+  font-size: 24px;
+  font-weight: 950;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.userDetailCard p {
+  overflow: hidden;
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.userDetailSection {
+  margin-top: 22px;
+  padding: 22px;
+  background: #fff;
+  border: 1px solid rgba(15, 17, 21, .08);
+  border-radius: 22px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.sectionHeader h2 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.userAgentList {
+  display: grid;
+  gap: 10px;
+}
+
+.userAgentItem {
+  display: grid;
+  grid-template-columns: auto minmax(160px, .5fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 13px;
+  background: var(--panel-soft);
+  border-radius: 16px;
+}
+
+.userAgentItem strong {
+  font-weight: 900;
+}
+
+.userAgentItem span:last-child {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .trigger-row {
@@ -3853,6 +3977,7 @@ input:focus, textarea:focus, select:focus {
 @media (max-width: 1080px) {
   .stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .identityGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .userDetailGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .triggerFilters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .triggerFilters button { justify-self: start; padding: 0 22px; }
   .skillToolbar { align-items: flex-start; flex-direction: column; }
@@ -3886,7 +4011,7 @@ input:focus, textarea:focus, select:focus {
   .page-head h1 { font-size: 36px; }
   .topbar { justify-content: flex-start; flex-wrap: wrap; }
   .nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .stat-row, .cards, .identityGrid, .overviewLeaderGrid, .agentActivityGrid { grid-template-columns: 1fr; }
+  .stat-row, .cards, .identityGrid, .userDetailGrid, .overviewLeaderGrid, .agentActivityGrid { grid-template-columns: 1fr; }
   .triggerFilters, .metaGrid, .mdmGrid, .fieldGrid, .rosterToolbar { grid-template-columns: 1fr; }
   .deployHero { flex-direction: column; }
   .card-title, .card-title .right, .row-card { align-items: flex-start; flex-direction: column; }

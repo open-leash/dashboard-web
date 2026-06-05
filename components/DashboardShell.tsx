@@ -400,6 +400,7 @@ export function DashboardShell({
   triggerSearchParams,
   logsSearchParams,
   usageSearchParams,
+  usersSearchParams,
   skillsSearchParams,
   settingsSearchParams,
   externalAgents,
@@ -421,6 +422,7 @@ export function DashboardShell({
   triggerSearchParams?: Record<string, string | undefined>;
   logsSearchParams?: Record<string, string | undefined>;
   usageSearchParams?: Record<string, string | undefined>;
+  usersSearchParams?: Record<string, string | undefined>;
   skillsSearchParams?: Record<string, string | undefined>;
   settingsSearchParams?: Record<string, string | undefined>;
   externalAgents?: ExternalAgentsData | null;
@@ -459,7 +461,7 @@ export function DashboardShell({
         {(tab === "setup" || tab === "settings") && <SettingsPage apiUrl={apiUrl} onboardingData={onboardingData ?? null} tenantDomain={tenantDomain} tenantSlug={tenantSlug} mode={dashboardMode} settingsItem={settingsSearchParams?.item} />}
         {tab === "triggers" && <TriggersPage triggers={triggerData?.triggers ?? []} detail={triggerDetail?.trigger} filters={triggerSearchParams ?? {}} mode={dashboardMode} basePath={basePath} />}
         {tab === "logs" && <LogsPage logs={logsData?.logs ?? []} detail={logsData?.logDetail?.log} filters={logsSearchParams ?? {}} mode={dashboardMode} basePath={basePath} />}
-        {tab === "users" && <UsersPage users={users} mode={dashboardMode} basePath={basePath} identitySource={identitySourceLabel(onboardingData, users)} />}
+        {tab === "users" && <UsersPage users={users} mode={dashboardMode} basePath={basePath} identitySource={identitySourceLabel(onboardingData, users)} filters={usersSearchParams ?? {}} />}
         {tab === "identity" && (personal ? <PersonalIdentityPage /> : <IdentityPage apiUrl={apiUrl} onboardingData={onboardingData ?? null} />)}
         {tab === "agents" && <AgentsPage agents={agents} recent={recent} mode={dashboardMode} basePath={basePath} />}
         {tab === "external-agents" && <ExternalAgentsPage apiUrl={apiUrl} data={externalAgents} />}
@@ -843,7 +845,9 @@ type UserRow = NonNullable<Overview["users"]>[number] & {
   lastSeenLabel?: string;
 };
 
-function UsersPage({ users, mode, basePath, identitySource }: { users: UserRow[]; mode: DashboardMode; basePath: string; identitySource: string }) {
+function UsersPage({ users, mode, basePath, identitySource, filters }: { users: UserRow[]; mode: DashboardMode; basePath: string; identitySource: string; filters: Record<string, string | undefined> }) {
+  const selectedUser = users.find((user) => user.id === filters.userId);
+  if (filters.userId) return <UserDetailPage user={selectedUser} basePath={basePath} identitySource={identitySource} />;
   if (mode === "personal") {
     return (
       <>
@@ -896,14 +900,86 @@ function UsersPage({ users, mode, basePath, identitySource }: { users: UserRow[]
         </div>
       </div>
 
-      <div className="card-title users-title">
-        <h3>Deployment roster</h3>
-        <div className="right">
-          <span className="sync-pill"><Clock3 size={14} /> Synced 4m ago</span>
-        </div>
-      </div>
-
       <UserRoster users={users.map((user) => userRosterItem(user, basePath))} />
+    </>
+  );
+}
+
+function UserDetailPage({ user, basePath, identitySource }: { user?: UserRow; basePath: string; identitySource: string }) {
+  if (!user) {
+    return (
+      <>
+        <Topbar />
+        <div className="page-head">
+          <div>
+            <Link className="backLink" href={routeHref(basePath, "/users")}><ArrowLeft size={17} />Users</Link>
+            <h1>User not found</h1>
+            <p className="sub">This user is not in the current identity roster.</p>
+          </div>
+        </div>
+        <div className="divider" />
+        <Empty text="No matching user was found." />
+      </>
+    );
+  }
+  const item = userRosterItem(user, basePath);
+  const avatar = avatarFor(item.name);
+  const clientActive = item.endpointCount > 0;
+  return (
+    <>
+      <Topbar />
+      <div className="page-head userDetailHead">
+        <div>
+          <Link className="backLink" href={routeHref(basePath, "/users")}><ArrowLeft size={17} />Users</Link>
+          <div className="userDetailIdentity">
+            <span className="avatar-lg" style={{ background: avatar.bg, color: avatar.fg }}>{initials(item.name)}</span>
+            <div>
+              <h1>{item.name}</h1>
+              <p className="sub">{item.email} · {item.department} · {item.title}</p>
+            </div>
+          </div>
+        </div>
+        <span className={`tag ${clientActive ? "allowed" : "blocked"}`}><span className="dot" />{clientActive ? "client active" : "client missing"}</span>
+      </div>
+      <div className="divider" />
+      <div className="userDetailGrid">
+        <section className="userDetailCard">
+          <span>Identity source</span>
+          <strong>{identitySource}</strong>
+          <p>{user.idp_provider ? providerLabel(user.idp_provider) : "Roster user"}</p>
+        </section>
+        <section className="userDetailCard">
+          <span>Client</span>
+          <strong>{clientActive ? "Installed" : "Needs rollout"}</strong>
+          <p>{clientActive ? "OpenLeash client checked in" : "No OpenLeash client check-in yet"}</p>
+        </section>
+        <section className="userDetailCard">
+          <span>Endpoint</span>
+          <strong>{item.endpointCount}</strong>
+          <p>{item.hostnames[0] ?? "No endpoint recorded"}</p>
+        </section>
+        <section className="userDetailCard">
+          <span>Last seen</span>
+          <strong>{item.lastSeen}</strong>
+          <p>Latest OpenLeash activity from this user.</p>
+        </section>
+      </div>
+      <section className="userDetailSection">
+        <div className="sectionHeader">
+          <h2>Agents</h2>
+          <a className="pill action-pill" href={item.logsHref}>View logs</a>
+        </div>
+        <div className="userAgentList">
+          {item.agents.map((agent) => (
+            <div className="userAgentItem" key={agent}>
+              <AgentLogo name={agent} fallback={initials(agent).slice(0, 1)} size="small" />
+              <strong>{agent}</strong>
+              <span>Seen on {item.hostnames[0] ?? "endpoint"}</span>
+            </div>
+          ))}
+          {item.agents.length === 0 && <Empty text="No agents recorded for this user yet." />}
+        </div>
+      </section>
     </>
   );
 }
@@ -923,7 +999,8 @@ function userRosterItem(user: UserRow, basePath: string): UserRosterItem {
     agents,
     hostnames,
     lastSeen: user.lastSeenLabel ?? (user.last_seen_at ? relativeTime(user.last_seen_at) : "Never"),
-    logsHref: `${routeHref(basePath, "/logs")}?userId=${encodeURIComponent(user.id)}`
+    logsHref: `${routeHref(basePath, "/logs")}?userId=${encodeURIComponent(user.id)}`,
+    detailHref: routeHref(basePath, `/users/${encodeURIComponent(user.id)}`)
   };
 }
 

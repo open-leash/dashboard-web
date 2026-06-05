@@ -34,6 +34,9 @@ export default async function TenantSection({
   if (slug === "skills") {
     return <DashboardPage initialTab="skills" skillsSearchParams={{ ...normalized, skillId: section }} />;
   }
+  if (slug === "users") {
+    return <DashboardPage initialTab="users" usersSearchParams={{ ...normalized, userId: section }} />;
+  }
   const initialTab = sectionTabs[section];
   if (!initialTab) notFound();
   return (

@@ -14,6 +14,7 @@ export type UserRosterItem = {
   hostnames: string[];
   lastSeen: string;
   logsHref: string;
+  detailHref: string;
 };
 
 export function UserRoster({ users }: { users: UserRosterItem[] }) {
@@ -28,16 +29,9 @@ export function UserRoster({ users }: { users: UserRosterItem[] }) {
       if (status === "covered" && !covered) return false;
       if (status === "missing" && covered) return false;
       if (!needle) return true;
-      return [
-        user.name,
-        user.email,
-        user.department,
-        user.title,
-        user.hostnames.join(" "),
-        user.agents.join(" ")
-      ].join("\n").toLowerCase().includes(needle);
+      return [user.name, user.email].join("\n").toLowerCase().includes(needle);
     });
-  }, [pageSize, query, status, users]);
+  }, [query, status, users]);
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, pageCount);
   const start = (safePage - 1) * pageSize;
@@ -58,7 +52,7 @@ export function UserRoster({ users }: { users: UserRosterItem[] }) {
               setQuery(event.target.value);
               resetPage();
             }}
-            placeholder="Name, email, team, agent, endpoint..."
+            placeholder="Search by name or email..."
           />
         </label>
         <label className="compactSelect">
@@ -115,7 +109,18 @@ function UserRosterRow({ user }: { user: UserRosterItem }) {
   const status = clientInstalled ? "covered" : "not-deployed";
   const avatar = avatarFor(user.name);
   return (
-    <article className="user-row">
+    <article
+      className="user-row user-row-clickable"
+      role="link"
+      tabIndex={0}
+      onClick={() => { window.location.href = user.detailHref; }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          window.location.href = user.detailHref;
+        }
+      }}
+    >
       <span className="avatar-sm user-avatar" style={{ background: avatar.bg, color: avatar.fg }}>{initials(user.name)}</span>
       <div className="user-main">
         <div className="user-name">{user.name}</div>
@@ -134,7 +139,7 @@ function UserRosterRow({ user }: { user: UserRosterItem }) {
         <span>{user.hostnames[0] ?? "No endpoint"}</span>
       </div>
       <div className="last-seen">{user.lastSeen}</div>
-      <a className="pill action-pill userLogsLink" href={user.logsHref}>Logs</a>
+      <a className="pill action-pill userLogsLink" href={user.logsHref} onClick={(event) => event.stopPropagation()}>Logs</a>
     </article>
   );
 }
