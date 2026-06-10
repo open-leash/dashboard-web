@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, ChevronRight, MonitorDown, ShieldCheck, Building2, Lock } from "lucide-react";
+import { CheckCircle2, ChevronRight, CircleDollarSign, MonitorDown, ShieldCheck, Building2, Lock } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { apiFetch } from "../lib/api-client";
@@ -20,7 +20,7 @@ export function OrganizationSetupPanel({
   tenantDomain: string;
   basePath: string;
   organizationSlug?: string;
-  variant?: "notice" | "settings";
+  variant?: "notice" | "settings" | "compact";
   showTaskCards?: boolean;
 }) {
   const org = onboardingData.organization;
@@ -34,21 +34,31 @@ export function OrganizationSetupPanel({
   const hasIdentity = Boolean(onboardingData.idp?.enabled);
   const hasRoles = onboardingData.roles.length > 0;
   const hasDeployment = onboardingData.deploymentTokens.length > 0;
+  const hasProviderUsage = Number(onboardingData.providerUsage?.connection_count ?? 0) > 0 || Number(onboardingData.providerUsage?.budget_count ?? 0) > 0;
   const tenantHost = company.slug.trim() ? `${company.slug.trim()}.${normalizedTenantDomain}` : `[company].${normalizedTenantDomain}`;
   const querySlug = organizationSlug ?? org.slug;
   const settingsPath = `${basePath}/settings`;
   const taskCards = [
     !hasIdentity ? <SetupTask key="identity" icon={<Lock size={18} />} title="Connect identity provider" detail="Google Workspace, Entra ID, Okta, Ping, or LDAP." href={`${settingsPath}?item=identity`} /> : null,
     !hasRoles ? <SetupTask key="roles" icon={<ShieldCheck size={18} />} title="Roles" detail="Choose who can manage OpenLeash." href={`${settingsPath}?item=roles`} /> : null,
-    !hasDeployment ? <SetupTask key="deploy" icon={<MonitorDown size={18} />} title="Deploy" detail={`Create a token for ${tenantHost}.`} href={`${settingsPath}?item=deploy`} /> : null
+    !hasDeployment ? <SetupTask key="deploy" icon={<MonitorDown size={18} />} title="Deploy" detail={`Create a token for ${tenantHost}.`} href={`${settingsPath}?item=deploy`} /> : null,
+    !hasProviderUsage ? <SetupTask key="providers" icon={<CircleDollarSign size={18} />} title="Budget management" detail="Connect provider usage or set a monthly budget." href={`${settingsPath}?item=providers`} /> : null
   ].filter(Boolean);
   const settingsCards = [
     <SetupTask key="identity" done={hasIdentity} icon={<Lock size={18} />} title="Identity provider" detail={hasIdentity ? `Connected to ${onboardingData.idp?.provider}` : "Connect your company identity source."} href={`${settingsPath}?item=identity`} />,
     <SetupTask key="roles" done={hasRoles} icon={<ShieldCheck size={18} />} title="Roles" detail={hasRoles ? `${onboardingData.roles.length} administrator${onboardingData.roles.length === 1 ? "" : "s"}` : "Choose dashboard administrators."} href={`${settingsPath}?item=roles`} />,
-    <SetupTask key="deploy" done={hasDeployment} icon={<MonitorDown size={18} />} title="Deploy" detail={hasDeployment ? `${onboardingData.deploymentTokens.length} deployment token${onboardingData.deploymentTokens.length === 1 ? "" : "s"}` : "Create deployment tokens."} href={`${settingsPath}?item=deploy`} />
+    <SetupTask key="deploy" done={hasDeployment} icon={<MonitorDown size={18} />} title="Deploy" detail={hasDeployment ? `${onboardingData.deploymentTokens.length} deployment token${onboardingData.deploymentTokens.length === 1 ? "" : "s"}` : "Create deployment tokens."} href={`${settingsPath}?item=deploy`} />,
+    <SetupTask key="providers" done={hasProviderUsage} icon={<CircleDollarSign size={18} />} title="Budget management" detail={hasProviderUsage ? "Provider usage configured." : "Connect providers or set monthly budget."} href={`${settingsPath}?item=providers`} />
   ];
   const showCompanyInline = variant === "settings" || !hasCompany;
   const visibleCards = variant === "settings" ? settingsCards : taskCards;
+  const pendingSetup = [
+    !hasCompany ? "organization" : null,
+    !hasIdentity ? "identity" : null,
+    !hasRoles ? "roles" : null,
+    !hasDeployment ? "deployment" : null,
+    !hasProviderUsage ? "budget management" : null
+  ].filter(Boolean);
 
   async function saveCompany() {
     const name = company.name.trim();
@@ -81,6 +91,20 @@ export function OrganizationSetupPanel({
   }
 
   if (variant === "notice" && hasCompany && visibleCards.length === 0) return null;
+  if (variant === "compact") {
+    if (pendingSetup.length === 0) return null;
+    const nextItem = !hasCompany ? "organization" : !hasIdentity ? "identity" : !hasRoles ? "roles" : !hasDeployment ? "deploy" : "providers";
+    return (
+      <aside className="setupOverviewNotice">
+        <span className="setupOverviewDot" />
+        <div>
+          <strong>Setup is incomplete</strong>
+          <p>{pendingSetup.length} item{pendingSetup.length === 1 ? "" : "s"} left: {pendingSetup.join(", ")}.</p>
+        </div>
+        <a href={`${settingsPath}?item=${nextItem}`}>Finish</a>
+      </aside>
+    );
+  }
 
   return (
     <section className={`setupTasksPanel ${variant === "settings" ? "settingsMode" : ""}`}>

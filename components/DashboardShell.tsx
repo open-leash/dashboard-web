@@ -22,10 +22,12 @@ import {
   KeyRound,
   Laptop,
   Lock,
+  Minimize2,
   Package,
   Search,
   Settings,
   Shield,
+  ShieldAlert,
   ShieldCheck,
   UserCheck,
   UserPlus,
@@ -36,10 +38,11 @@ import { DeploymentTokenIssuer } from "./DeploymentTokenIssuer";
 import { IdentityManager, type OnboardingData } from "./EnterpriseOnboarding";
 import { OrganizationSetupPanel } from "./OrganizationSetupPanel";
 import { LiveDate } from "./LiveDate";
-import { DashboardSignOutButton, DashboardUserChip } from "./DashboardAuth";
+import { DashboardGreeting, DashboardSignOutButton, DashboardSignOutIconButton, DashboardUserChip } from "./DashboardAuth";
 import { DashboardSettingsPane, SettingsTree, TokensSettingsPanel } from "./DashboardSettings";
 import { AgentInventory, type AgentInventoryCard } from "./AgentInventory";
 import { UserRoster, type UserRosterItem } from "./UserRoster";
+import { PromptTransformSettings } from "./PromptTransformSettings";
 
 export type Overview = {
   metrics: {
@@ -194,7 +197,7 @@ type ConversationTurnView = {
   at?: string;
 };
 
-export type CoreDashboardTab = "overview" | "usage" | "setup" | "settings" | "triggers" | "users" | "identity" | "agents" | "external-agents" | "mcps" | "skills" | "policies" | "tokens" | "deployment";
+export type CoreDashboardTab = "overview" | "usage" | "setup" | "settings" | "triggers" | "users" | "identity" | "agents" | "external-agents" | "mcps" | "skills" | "policies" | "compression" | "dlp" | "tokens" | "deployment";
 export type DashboardTab = CoreDashboardTab | (string & {});
 export type DashboardExtensionTab = {
   id: string;
@@ -345,6 +348,53 @@ export type ExternalAgentsData = {
   }>;
 };
 
+export type ProviderUsageData = {
+  summary?: {
+    total_cost_cents?: string | number;
+    request_count?: string | number;
+    token_count?: string | number;
+    user_count?: string | number;
+    provider_count?: string | number;
+  };
+  byProvider?: ProviderUsageAggregate[];
+  byUser?: Array<{
+    email: string;
+    name?: string | null;
+    cost_cents?: string | number;
+    request_count?: string | number;
+    token_count?: string | number;
+    last_seen_at?: string | null;
+  }>;
+  byModel?: ProviderUsageAggregate[];
+  connections?: Array<{
+    id: string;
+    provider: string;
+    label?: string | null;
+    enabled?: boolean;
+    status?: string | null;
+    last_sync_at?: string | null;
+    last_error?: string | null;
+    last_validated_at?: string | null;
+    total_cost_cents?: string | number;
+    event_count?: string | number;
+  }>;
+  budgets?: Array<{
+    provider?: string | null;
+    monthly_budget_cents?: string | number;
+    enabled?: boolean;
+    updated_at?: string | null;
+  }>;
+};
+
+type ProviderUsageAggregate = {
+  provider: string;
+  model?: string | null;
+  cost_cents?: string | number;
+  request_count?: string | number;
+  token_count?: string | number;
+  user_count?: string | number;
+};
+
 const agentPalette = [
   { bg: "#f08a55", fg: "white", letter: "C" },
   { bg: "#0f1115", fg: "white", letter: "C" },
@@ -404,6 +454,7 @@ export function DashboardShell({
   skillsSearchParams,
   settingsSearchParams,
   externalAgents,
+  providerUsage,
   mcpServers,
   skills,
   onboardingData,
@@ -426,6 +477,7 @@ export function DashboardShell({
   skillsSearchParams?: Record<string, string | undefined>;
   settingsSearchParams?: Record<string, string | undefined>;
   externalAgents?: ExternalAgentsData | null;
+  providerUsage?: ProviderUsageData | null;
   mcpServers?: McpServersData | null;
   skills?: SkillsData | null;
   onboardingData?: OnboardingData | null;
@@ -456,9 +508,23 @@ export function DashboardShell({
       <Sidebar tab={tab} agentsCount={visibleAgentCount} usersCount={users.length} basePath={basePath} mode={dashboardMode} extensionTabs={extensionTabs} settingsItem={settingsSearchParams?.item} />
       <main className="main">
         {tab === "overview" && needsIdentityProvider && <IdentityProviderNotice basePath={basePath} />}
-        {tab === "overview" && needsSetup && onboardingData && <OrganizationSetupPanel apiUrl={apiUrl} onboardingData={onboardingData} tenantDomain={tenantDomain} basePath={basePath} organizationSlug={tenantSlug} />}
-        {tab === "overview" && <OverviewPage metrics={metrics} recent={recent} agents={agents} policies={policies} users={users} usageSessions={usageSessions} organizationName={onboardingData?.organization.name} mode={dashboardMode} basePath={basePath} />}
-        {tab === "usage" && <UsagePage sessions={usageSessions} users={users} mode={dashboardMode} basePath={basePath} range={usageSearchParams?.range} view={usageSearchParams?.view} />}
+        {tab === "overview" && (
+          <OverviewPage
+            metrics={metrics}
+            recent={recent}
+            agents={agents}
+            policies={policies}
+            users={users}
+            usageSessions={usageSessions}
+            organizationName={onboardingData?.organization.name}
+            mode={dashboardMode}
+            basePath={basePath}
+            setupPanel={needsSetup && onboardingData ? (
+              <OrganizationSetupPanel apiUrl={apiUrl} onboardingData={onboardingData} tenantDomain={tenantDomain} basePath={basePath} organizationSlug={tenantSlug} variant="compact" />
+            ) : null}
+          />
+        )}
+        {tab === "usage" && <UsagePage sessions={usageSessions} users={users} providerUsage={providerUsage} mode={dashboardMode} basePath={basePath} range={usageSearchParams?.range} view={usageSearchParams?.view} />}
         {(tab === "setup" || tab === "settings") && <SettingsPage apiUrl={apiUrl} onboardingData={onboardingData ?? null} tenantDomain={tenantDomain} tenantSlug={tenantSlug} mode={dashboardMode} settingsItem={settingsSearchParams?.item} />}
         {tab === "triggers" && <TriggersPage triggers={triggerData?.triggers ?? []} detail={triggerDetail?.trigger} filters={triggerSearchParams ?? {}} mode={dashboardMode} basePath={basePath} />}
         {tab === "logs" && <LogsPage logs={logsData?.logs ?? []} detail={logsData?.logDetail?.log} filters={logsSearchParams ?? {}} mode={dashboardMode} basePath={basePath} />}
@@ -469,6 +535,8 @@ export function DashboardShell({
         {tab === "mcps" && <McpServersPage apiUrl={apiUrl} data={mcpServers} mode={dashboardMode} />}
         {tab === "skills" && <SkillsPage data={skills} mode={dashboardMode} basePath={basePath} filters={skillsSearchParams ?? {}} />}
         {tab === "policies" && <PoliciesPage apiUrl={apiUrl} policies={policies} mode={dashboardMode} tenantSlug={tenantSlug} />}
+        {tab === "compression" && <CompressionPage apiUrl={apiUrl} tenantSlug={tenantSlug} mode={dashboardMode} />}
+        {tab === "dlp" && <DlpPage apiUrl={apiUrl} tenantSlug={tenantSlug} mode={dashboardMode} />}
         {tab === "tokens" && <TokensPage apiUrl={apiUrl} mode={dashboardMode} />}
         {tab === "deployment" && <DeploymentPage apiUrl={apiUrl} mode={dashboardMode} />}
         {activeExtension?.render(extensionContext)}
@@ -528,15 +596,17 @@ function Sidebar({
         <div className="brand-name">OpenLeash</div>
       </div>
       <nav className="nav" aria-label="Dashboard sections">
-        <NavButton active={tab === "overview"} href={dashboardHref(basePath, "/")} icon={<Home />} label="Overview" />
-        <NavButton active={tab === "usage"} href={dashboardHref(basePath, "/usage")} icon={<Clock3 />} label="Usage" />
-        <NavButton active={tab === "triggers"} href={dashboardHref(basePath, "/triggers")} icon={<AlertTriangle />} label={personal ? "Activity" : "Triggers"} />
-        <NavButton active={tab === "logs"} href={dashboardHref(basePath, "/logs")} icon={<FileClock />} label="Logs" />
+        <NavButton active={tab === "overview"} href={dashboardHref(basePath, "/")} icon={<Home />} label="Home" />
         <NavButton active={tab === "agents"} href={dashboardHref(basePath, "/agents")} icon={<Bot />} label={personal ? "My agents" : "Agents"} badge={agentsCount || undefined} />
         {!personal && <NavButton active={tab === "users"} href={dashboardHref(basePath, "/users")} icon={<Users />} label="Users" badge={usersCount || undefined} />}
-        <NavButton active={tab === "mcps"} href={dashboardHref(basePath, "/mcps")} icon={<Database />} label="MCPs" />
+        <NavButton active={tab === "usage"} href={dashboardHref(basePath, "/usage")} icon={<Clock3 />} label="Usage" />
+        <NavButton active={tab === "triggers"} href={dashboardHref(basePath, "/events")} icon={<AlertTriangle />} label={personal ? "Activity" : "Events"} />
         <NavButton active={tab === "skills"} href={dashboardHref(basePath, "/skills")} icon={<Code2 />} label="Skills" />
+        <NavButton active={tab === "mcps"} href={dashboardHref(basePath, "/mcps")} icon={<Database />} label="MCPs" />
         <NavButton active={tab === "policies"} href={dashboardHref(basePath, "/policies")} icon={<ShieldCheck />} label={personal ? "Guardrails" : "Policies"} />
+        <NavButton active={tab === "logs"} href={dashboardHref(basePath, "/logs")} icon={<FileClock />} label="Logs" />
+        <NavButton active={tab === "compression"} href={dashboardHref(basePath, "/compression")} icon={<Minimize2 />} label="Compression" />
+        <NavButton active={tab === "dlp"} href={dashboardHref(basePath, "/dlp")} icon={<ShieldAlert />} label="DLP" />
         {personal && <NavButton active={tab === "tokens"} href={dashboardHref(basePath, "/tokens")} icon={<KeyRound />} label="Connect" />}
         {extensionTabs
           .filter((item) => !personal || item.showInPersonal)
@@ -566,7 +636,7 @@ function Sidebar({
   );
 }
 
-type DashboardHref = "/" | "/usage" | "/setup" | "/settings" | "/triggers" | "/logs" | "/users" | "/identity" | "/agents" | "/external-agents" | "/mcps" | "/skills" | "/policies" | "/tokens" | "/deployment";
+type DashboardHref = "/" | "/usage" | "/setup" | "/settings" | "/events" | "/triggers" | "/logs" | "/users" | "/identity" | "/agents" | "/external-agents" | "/mcps" | "/skills" | "/policies" | "/compression" | "/dlp" | "/tokens" | "/deployment";
 
 function dashboardHref(basePath: string, href: DashboardHref | string) {
   if (!basePath) return href;
@@ -612,7 +682,8 @@ function OverviewPage({
   usageSessions,
   organizationName,
   mode,
-  basePath
+  basePath,
+  setupPanel
 }: {
   metrics: Overview["metrics"];
   recent: Overview["recent"];
@@ -623,6 +694,7 @@ function OverviewPage({
   organizationName?: string | null;
   mode: DashboardMode;
   basePath: string;
+  setupPanel?: React.ReactNode;
 }) {
   const latest = recent.filter(isTriggerEvent).slice(0, 10);
   const topAgents = overviewAgents(agents, users).slice(0, 7);
@@ -649,10 +721,12 @@ function OverviewPage({
 
       <div className="divider" />
 
+      {setupPanel}
+
       <div className="stat-row">
         <Stat icon={<Bot />} label={personal ? "Your agents" : "Agents"} value={metrics.agents} />
         {personal ? <Stat icon={<Laptop />} label="Computers" value={metrics.computers} /> : <Stat icon={<Users />} label="Managed users" value={String(managedUsers)} />}
-        <Stat icon={<AlertTriangle />} label={personal ? "Things to review" : "Triggers"} value={String(totalTriggers)} />
+        <Stat icon={<AlertTriangle />} label={personal ? "Things to review" : "Events"} value={String(totalTriggers)} />
         <Stat icon={<Clock3 />} label="Agent time 24h" value={formatDuration(metrics.session_time?.last24h_seconds)} />
       </div>
 
@@ -686,10 +760,10 @@ function OverviewPage({
       </div>
 
       <div className="card-title overview-activity-head">
-        <h3>{personal ? "Recent activity" : "Last triggers"}</h3>
+        <h3>{personal ? "Recent activity" : "Recent events"}</h3>
         <div className="right">
-          <Link className="pill action-pill" href={routeHref(basePath, "/triggers")}>
-            <span>{personal ? "All activity" : "Audit log"}</span>
+          <Link className="pill action-pill" href={routeHref(basePath, "/events")}>
+            <span>{personal ? "All activity" : "All events"}</span>
             <ChevronRight size={14} />
           </Link>
         </div>
@@ -697,13 +771,13 @@ function OverviewPage({
 
       <div className="trigger-list">
         {latest.map((event) => <TriggerRow key={event.id} event={event} basePath={basePath} />)}
-        {latest.length === 0 && <Empty text="No trigger activity yet." />}
+        {latest.length === 0 && <Empty text="No event activity yet." />}
       </div>
 
       <div className="section-spacer" />
 
       <div className="card-title">
-        <h3>{personal ? "Guardrails" : "Top triggering policies"}</h3>
+        <h3>{personal ? "Guardrails" : "Top event policies"}</h3>
         <div className="right">
           <Link className="pill action-pill" href={routeHref(basePath, "/policies")}>
             <span>All</span>
@@ -714,7 +788,7 @@ function OverviewPage({
 
       <div>
         {topPolicies.map((policy, index) => (
-          <Link key={policy.id} className="row-card policy-row" href={`${routeHref(basePath, "/triggers")}?policy=${encodeURIComponent(policy.name)}` as any}>
+          <Link key={policy.id} className="row-card policy-row" href={`${routeHref(basePath, "/events")}?policy=${encodeURIComponent(policy.name)}` as any}>
             <div className="row-ico">{iconForPolicy(policy, index)}</div>
             <div className="row-copy">
               <div className="row-title">{compactRule(policy.name)}</div>
@@ -722,12 +796,12 @@ function OverviewPage({
             </div>
             <div className="blocked-count">
               {formatCount(policy.trigger_count)}
-              <span> triggers</span>
+              <span> events</span>
             </div>
             <ChevronRight size={18} className="muted" />
           </Link>
         ))}
-        {topPolicies.length === 0 && <Empty text="No policies have triggered yet." />}
+        {topPolicies.length === 0 && <Empty text="No policy events yet." />}
       </div>
     </>
   );
@@ -1047,7 +1121,7 @@ function agentInventoryCard(
 ): AgentInventoryCard {
   const events = agentEvents(agent, recent).slice(0, 4).map((event) => ({
     id: event.id,
-    href: routeHref(basePath, `/triggers/${event.id}`),
+    href: routeHref(basePath, `/events/${event.id}`),
     project: projectTag(event.project_path) ?? "No project",
     title: agentActionTitle(event),
     context: agentActionContext(event),
@@ -1142,11 +1216,11 @@ function sentenceTitle(value: string) {
   return clean.charAt(0).toUpperCase() + clean.slice(1);
 }
 
-function UsagePage({ sessions, users, mode, basePath, range, view }: { sessions: UsageSession[]; users: UserRow[]; mode: DashboardMode; basePath: string; range?: string; view?: string }) {
+function UsagePage({ sessions, users, providerUsage, mode, basePath, range, view }: { sessions: UsageSession[]; users: UserRow[]; providerUsage?: ProviderUsageData | null; mode: DashboardMode; basePath: string; range?: string; view?: string }) {
   const personal = mode === "personal";
   const now = Date.now();
-  const selectedView = view === "sessions" ? "sessions" : "employees";
-  const usageHref = (next: { range?: string; view?: "employees" | "sessions" }) => {
+  const selectedView = view === "sessions" ? "sessions" : view === "providers" && !personal ? "providers" : "employees";
+  const usageHref = (next: { range?: string; view?: "employees" | "sessions" | "providers" }) => {
     const nextRange = next.range ?? selectedRange.label.toLowerCase();
     const nextView = next.view ?? selectedView;
     const params = new URLSearchParams();
@@ -1193,6 +1267,7 @@ function UsagePage({ sessions, users, mode, basePath, range, view }: { sessions:
       <div className="usageViewSwitch">
         <Link className={selectedView === "employees" ? "active" : ""} href={usageHref({ view: "employees" })}>Employees</Link>
         <Link className={selectedView === "sessions" ? "active" : ""} href={usageHref({ view: "sessions" })}>Sessions</Link>
+        {!personal && <Link className={selectedView === "providers" ? "active" : ""} href={usageHref({ view: "providers" })}>Providers</Link>}
       </div>
 
       <div className="usageGrid single">
@@ -1232,8 +1307,155 @@ function UsagePage({ sessions, users, mode, basePath, range, view }: { sessions:
             {scoped.length === 0 && <Empty text="No sessions captured for this range." />}
           </div>
         </section>}
+
+        {selectedView === "providers" && <ProviderUsagePanel data={providerUsage} rangeLabel={selectedRange.label} />}
       </div>
     </>
+  );
+}
+
+function ProviderUsagePanel({ data, rangeLabel }: { data?: ProviderUsageData | null; rangeLabel: string }) {
+  const summary = data?.summary ?? {};
+  const connections = data?.connections ?? [];
+  const byUser = data?.byUser ?? [];
+  const byModel = (data?.byModel ?? []).slice(0, 12);
+  const byProvider = data?.byProvider ?? [];
+  const monthlyBudget = (data?.budgets ?? []).reduce((sum, item) => sum + numeric(item.monthly_budget_cents), 0);
+  const remainingBudget = Math.max(0, monthlyBudget - numeric(summary.total_cost_cents));
+  const topModel = byModel[0];
+  const totalModelRequests = byModel.reduce((sum, item) => sum + providerModelMetric(item), 0);
+  const averageDailyUsers = Math.max(0, Math.round(numeric(summary.user_count) / 7));
+  const donutStyle = { background: modelDonutGradient(byModel) };
+  return (
+    <section className="modelUsageShell">
+      <div className="modelUsageMain">
+        <div className="modelUsageTitle">
+          <div>
+            <h2>AI Model Usage</h2>
+            <p>{providerUsageDateLabel(rangeLabel)} · from connected provider management APIs</p>
+          </div>
+          <span className="sync-pill">{connections.filter((item) => item.status === "connected").length} connected</span>
+        </div>
+
+        <div className="modelUsageStats">
+          <div className="modelStatCard">
+            <span>Total requests</span>
+            <strong>{formatCount(summary.request_count)}</strong>
+            <small>across {formatCount(byModel.length || numeric(summary.provider_count))} models</small>
+          </div>
+          <div className="modelStatCard">
+            <span>Top model</span>
+            <strong className="accentText">{topModel?.model || "No model data"}</strong>
+            <small>{topModel ? `${formatCount(providerModelMetric(topModel))} requests` : "connect a provider to sync"}</small>
+          </div>
+          <div className="modelStatCard">
+            <span>Avg DAU</span>
+            <strong>{formatCount(averageDailyUsers || summary.user_count)}</strong>
+            <small>daily active users</small>
+          </div>
+          <div className="modelStatCard budget">
+            <span>Budget remaining</span>
+            <strong>{formatCurrencyCents(remainingBudget)}</strong>
+            <small>{formatCurrencyCents(summary.total_cost_cents)} spent</small>
+          </div>
+        </div>
+
+        <div className="modelUsageCharts">
+          <section className="modelChartCard">
+            <h3>Share of Requests</h3>
+            <div className="donutWrap">
+              <div className="modelDonut" style={donutStyle} />
+            </div>
+            <div className="modelLegend">
+              {byModel.slice(0, 8).map((row, index) => (
+                <span key={`${row.provider}:${row.model}`}><i style={{ background: modelColor(index) }} />{row.model || "Unknown"}</span>
+              ))}
+            </div>
+            {byModel.length === 0 && <Empty text="No provider usage synced for this range." />}
+          </section>
+
+          <section className="modelChartCard">
+            <h3>Requests by Model</h3>
+            <p>Click a model later to inspect users; top model is shown on the right.</p>
+            <div className="modelBars">
+              {byModel.map((row, index) => {
+                const value = providerModelMetric(row);
+                const width = totalModelRequests ? Math.max(4, Math.round((value / totalModelRequests) * 100)) : 0;
+                return (
+                  <div className="modelBarRow" key={`${row.provider}:${row.model}`}>
+                    <span>{row.model || "Unknown"}</span>
+                    <div><b style={{ width: `${width}%`, background: modelColor(index) }} /></div>
+                    <strong>{formatCompactNumber(value)}</strong>
+                  </div>
+                );
+              })}
+              {byModel.length === 0 && <Empty text="Connect Cursor, OpenAI, or Claude from Settings to start syncing provider usage." />}
+            </div>
+          </section>
+        </div>
+
+        <div className="providerUsageColumns compactAnalytics">
+          <div className="usageTable">
+            <div className="card-title compact"><h3>Sources</h3></div>
+            <div className="usageTableHead provider"><span>Provider</span><span>Status</span><span>Synced</span><span>Events</span><span>Spend</span></div>
+            {connections.map((connection) => (
+              <div className="usageTableRow provider" key={connection.id}>
+                <span><strong>{connection.label || providerName(connection.provider)}</strong><small>{providerName(connection.provider)}</small></span>
+                <span><span className={`tag ${connection.status === "connected" ? "allowed" : "blocked"}`}><span className="dot" />{connection.status || "pending"}</span></span>
+                <span>{connection.last_sync_at ? relativeTime(connection.last_sync_at) : "Never"}</span>
+                <span>{formatCount(connection.event_count)}</span>
+                <span>{formatCurrencyCents(connection.total_cost_cents)}</span>
+              </div>
+            ))}
+            {connections.length === 0 && <Empty text="No provider connections yet." />}
+          </div>
+
+          <div className="usageTable">
+            <div className="card-title compact"><h3>By provider</h3></div>
+            <div className="usageTableHead provider"><span>Provider</span><span>Users</span><span>Requests</span><span>Tokens</span><span>Spend</span></div>
+            {byProvider.map((row) => (
+              <div className="usageTableRow provider" key={row.provider}>
+                <span><strong>{providerName(row.provider)}</strong><small>{row.model || "all usage"}</small></span>
+                <span>{formatCount(row.user_count)}</span>
+                <span>{formatCount(row.request_count)}</span>
+                <span>{formatCompactNumber(row.token_count)}</span>
+                <span>{formatCurrencyCents(row.cost_cents)}</span>
+              </div>
+            ))}
+            {byProvider.length === 0 && <Empty text="No provider usage synced for this range." />}
+          </div>
+        </div>
+      </div>
+
+      <aside className="modelInspector">
+        <div className="modelInspectorHead">
+          <div>
+            <span>Model</span>
+            <strong>{topModel?.model || "No model selected"}</strong>
+          </div>
+          <button type="button" aria-label="Close">×</button>
+        </div>
+        <div className="modelInspectorStats">
+          <div><span>Users</span><strong>{formatCount(summary.user_count)}</strong></div>
+          <div><span>Requests on model</span><strong>{formatCount(topModel ? providerModelMetric(topModel) : 0)}</strong></div>
+        </div>
+        <div className="modelUserList">
+          {byUser.slice(0, 10).map((row, index) => (
+            <div className="modelUserRow" key={row.email}>
+              <span className="modelRank">{index + 1}</span>
+              <span className="modelAvatar">{initials(row.name || row.email)}</span>
+              <span className="modelPerson"><strong>{row.name || row.email}</strong><small>{row.email}</small></span>
+              <span className="modelUse">
+                <strong>{formatCompactNumber(row.request_count || row.token_count || row.cost_cents)}</strong>
+                <small>{usageShare(row, summary)}% of their use</small>
+                <i><b style={{ width: `${Math.min(100, Math.max(6, usageShare(row, summary)))}%` }} /></i>
+              </span>
+            </div>
+          ))}
+          {byUser.length === 0 && <Empty text="No per-user provider data yet. Cursor sync usually fills this first." />}
+        </div>
+      </aside>
+    </section>
   );
 }
 
@@ -1674,6 +1896,40 @@ function PoliciesPage({ apiUrl, policies, mode, tenantSlug }: { apiUrl: string; 
   );
 }
 
+function CompressionPage({ apiUrl, tenantSlug, mode }: { apiUrl: string; tenantSlug?: string; mode: DashboardMode }) {
+  const personal = mode === "personal";
+  return (
+    <>
+      <Topbar />
+      <div className="page-head">
+        <div>
+          <h1>Compression</h1>
+          <p className="sub">{personal ? "Reduce local prompt size before a provider sees it." : "Reduce prompt size before managed clients send prompts to provider models."}</p>
+        </div>
+      </div>
+      <div className="divider" />
+      <PromptTransformSettings apiUrl={apiUrl} tenantSlug={tenantSlug} mode="compression" />
+    </>
+  );
+}
+
+function DlpPage({ apiUrl, tenantSlug, mode }: { apiUrl: string; tenantSlug?: string; mode: DashboardMode }) {
+  const personal = mode === "personal";
+  return (
+    <>
+      <Topbar />
+      <div className="page-head">
+        <div>
+          <h1>DLP</h1>
+          <p className="sub">{personal ? "Mask or block sensitive prompt data on this Mac." : "Mask or block sensitive data before prompts leave managed clients."}</p>
+        </div>
+      </div>
+      <div className="divider" />
+      <PromptTransformSettings apiUrl={apiUrl} tenantSlug={tenantSlug} mode="dlp" />
+    </>
+  );
+}
+
 function TokensPage({ apiUrl, mode }: { apiUrl: string; mode: DashboardMode }) {
   const personal = mode === "personal";
   return (
@@ -1765,7 +2021,10 @@ function Topbar() {
         <span className="ic"><CalendarDays size={18} /></span>
       </div>
       <button className="iconbutton" type="button"><Bell size={18} /><span className="dotmark" /></button>
-      <DashboardUserChip />
+      <div className="topbarUserActions">
+        <DashboardUserChip />
+        <DashboardSignOutIconButton />
+      </div>
     </div>
   );
 }
@@ -1793,7 +2052,7 @@ function TriggerRow({ event, basePath }: { event: Overview["recent"][number]; ba
   const firstPolicy = triggered[0];
   const title = firstPolicy?.policy_name ?? compactRule(event.question ?? event.summary);
   return (
-    <Link className="trigger-row" href={routeHref(basePath, `/triggers/${event.id}`)}>
+    <Link className="trigger-row" href={routeHref(basePath, `/events/${event.id}`)}>
       <AgentLogo name={event.agent_name} fallback={initials(event.agent_name).slice(0, 1)} size="large" />
       <div className="trigger-copy">
         <div className="who">{event.user_name ?? "Unknown user"} <span>· {title}</span></div>
@@ -1998,12 +2257,12 @@ function TriggersPage({
       <Topbar />
       <div className="page-head">
         <div>
-          <h1>{personal ? "Activity" : "Triggers"}</h1>
+          <h1>{personal ? "Activity" : "Events"}</h1>
           <p className="sub">{personal ? "Review the moments when OpenLeash protected you or asked for approval." : "Search policy interventions by user, policy, agent, project, or date."}</p>
         </div>
       </div>
       <div className="divider" />
-      <form className="triggerFilters" action={dashboardHref(basePath, "/triggers")}>
+      <form className="triggerFilters" action={dashboardHref(basePath, "/events")}>
         <label>
           <span>Search</span>
           <div className="searchInput"><Search size={16} /><input name="q" defaultValue={filters.q ?? ""} placeholder="Prompt, project, tool..." /></div>
@@ -2038,7 +2297,7 @@ function TriggersPage({
 
       <div className="triggerAuditList">
         {triggers.map((trigger) => <TriggerAuditRow key={trigger.id} trigger={trigger} basePath={basePath} />)}
-        {triggers.length === 0 && <Empty text={personal ? "No personal activity matched this filter." : "No matching policy triggers."} />}
+        {triggers.length === 0 && <Empty text={personal ? "No personal activity matched this filter." : "No matching policy events."} />}
       </div>
     </>
   );
@@ -2050,7 +2309,7 @@ function TriggerAuditRow({ trigger, basePath }: { trigger: TriggerItem; basePath
   const state = trigger.resolution ?? trigger.decision;
   const title = triggerDisplayTitle(trigger);
   return (
-    <Link className="triggerAuditRow" href={routeHref(basePath, `/triggers/${trigger.id}`)}>
+    <Link className="triggerAuditRow" href={routeHref(basePath, `/events/${trigger.id}`)}>
       <AgentLogo name={trigger.agent_name} fallback={initials(trigger.agent_name).slice(0, 1)} size="large" />
       <div className="audit-main">
         <div className="audit-title">{title}</div>
@@ -2097,10 +2356,10 @@ function TriggerDetailPage({ trigger, basePath, mode }: { trigger: TriggerDetail
       <Topbar />
       <div className="page-head">
         <div>
-          <h1>{personal ? "Activity detail" : "Trigger detail"}</h1>
+          <h1>{personal ? "Activity detail" : "Event detail"}</h1>
           <p className="sub">{trigger.summary}</p>
         </div>
-        <Link className="pill action-pill" href={routeHref(basePath, "/triggers")}>Back</Link>
+        <Link className="pill action-pill" href={routeHref(basePath, "/events")}>Back</Link>
       </div>
       <div className="divider" />
 
@@ -2272,6 +2531,7 @@ function LogDetailPage({ log, basePath, mode }: { log: LogItem; basePath: string
   const state = logState(log);
   const policyResults = log.policy_results ?? [];
   const payloadText = safeJson(log.payload);
+  const promptTransform = promptTransformFromPayload(log.payload);
   const personal = mode === "personal";
   return (
     <>
@@ -2334,6 +2594,40 @@ function LogDetailPage({ log, basePath, mode }: { log: LogItem; basePath: string
         ))}
         {transcript.length === 0 && <Empty text="No transcript was included with this hook event." />}
       </section>
+
+      {promptTransform && (
+        <section className="detailPanel full">
+          <div className="card-title">
+            <h3>Prompt transforms</h3>
+            <span className={`tag ${promptTransform.blocked ? "blocked" : "allowed"}`}><span className="dot" />{promptTransform.blocked ? "blocked" : "applied"}</span>
+          </div>
+          <div className="transformLogGrid">
+            {promptTransform.compression?.enabled && (
+              <div>
+                <strong>Compression</strong>
+                <span>{formatCount(promptTransform.compression.originalLength)} to {formatCount(promptTransform.compression.compressedLength)} chars · {Math.round((1 - promptTransform.compression.ratio) * 100)}% smaller</span>
+              </div>
+            )}
+            {promptTransform.dlp?.enabled && (
+              <div>
+                <strong>DLP</strong>
+                <span>{promptTransform.dlp.matched ? `${promptTransform.dlp.action}${promptTransform.dlp.masked ? "ed" : ""}: ${promptTransform.dlp.categories.join(", ")}` : "passed"}</span>
+              </div>
+            )}
+          </div>
+          {promptTransform.dlp?.findings?.length ? (
+            <div className="policyHitList transformFindings">
+              {promptTransform.dlp.findings.slice(0, 6).map((finding: { category: string; quote: string; reason: string }, index: number) => (
+                <article key={`${finding.category}-${index}`}>
+                  <strong>{finding.category.toUpperCase()}</strong>
+                  <p>{finding.reason}</p>
+                  {finding.quote && <code>{finding.quote}</code>}
+                </article>
+              ))}
+            </div>
+          ) : null}
+        </section>
+      )}
 
       <section className="detailPanel full">
         <div className="card-title"><h3>Raw hook payload</h3></div>
@@ -2402,6 +2696,35 @@ function safeJson(value: unknown) {
   } catch {
     return "{}";
   }
+}
+
+function promptTransformFromPayload(value: unknown) {
+  if (!value || typeof value !== "object") return undefined;
+  const payload = value as { openleashPromptTransform?: unknown };
+  const transform = payload.openleashPromptTransform;
+  if (!transform || typeof transform !== "object") return undefined;
+  const record = transform as any;
+  return {
+    blocked: Boolean(record.blocked),
+    compression: record.compression && typeof record.compression === "object" ? {
+      enabled: Boolean(record.compression.enabled),
+      originalLength: Number(record.compression.originalLength || 0),
+      compressedLength: Number(record.compression.compressedLength || 0),
+      ratio: Number(record.compression.ratio || 1)
+    } : undefined,
+    dlp: record.dlp && typeof record.dlp === "object" ? {
+      enabled: Boolean(record.dlp.enabled),
+      action: String(record.dlp.action || "mask"),
+      matched: Boolean(record.dlp.matched),
+      masked: Boolean(record.dlp.masked),
+      categories: Array.isArray(record.dlp.categories) ? record.dlp.categories.map(String) : [],
+      findings: Array.isArray(record.dlp.findings) ? record.dlp.findings.map((finding: any) => ({
+        category: String(finding?.category || "dlp"),
+        quote: String(finding?.quote || ""),
+        reason: String(finding?.reason || "")
+      })) : []
+    } : undefined
+  };
 }
 
 function AgentLogo({ name, fallback, size }: { name: string; fallback: string; size: "small" | "large" }) {
@@ -2507,6 +2830,91 @@ function numeric(value: string | number | undefined | null) {
 
 function formatCount(value: string | number | undefined | null) {
   return numeric(value).toLocaleString();
+}
+
+function formatCompactNumber(value: string | number | undefined | null) {
+  const number = numeric(value);
+  if (number >= 1_000_000) return `${(number / 1_000_000).toFixed(number >= 10_000_000 ? 0 : 1)}M`;
+  if (number >= 1_000) return `${(number / 1_000).toFixed(number >= 10_000 ? 0 : 1)}K`;
+  return formatCount(number);
+}
+
+function formatCurrencyCents(value: string | number | undefined | null) {
+  const cents = numeric(value);
+  if (!cents) return "$0";
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: cents < 1000 ? 2 : 0 }).format(cents / 100);
+}
+
+function providerName(value: string | undefined | null) {
+  if (value === "openai") return "OpenAI";
+  if (value === "anthropic") return "Claude";
+  if (value === "cursor") return "Cursor";
+  return value ? sentenceTitle(value) : "Provider";
+}
+
+function providerUsageDateLabel(rangeLabel: string) {
+  if (rangeLabel.toLowerCase() === "all") return "Last 180 days";
+  return `Last ${rangeLabel}`;
+}
+
+function providerModelMetric(row: ProviderUsageAggregate) {
+  return numeric(row.request_count) || numeric(row.token_count) || numeric(row.cost_cents);
+}
+
+function usageShare(row: { request_count?: string | number; token_count?: string | number; cost_cents?: string | number }, summary: ProviderUsageData["summary"]) {
+  const value = numeric(row.request_count) || numeric(row.token_count) || numeric(row.cost_cents);
+  const total = numeric(summary?.request_count) || numeric(summary?.token_count) || numeric(summary?.total_cost_cents);
+  if (!value || !total) return 0;
+  return Math.max(1, Math.min(99, Math.round((value / total) * 100)));
+}
+
+function modelColor(index: number) {
+  return ["#4f46c7", "#7450c8", "#8f79cd", "#5f8fcf", "#2f73c0", "#79a7cc", "#15947f", "#c58c21", "#c65a5a"][index % 9];
+}
+
+function modelDonutGradient(rows: ProviderUsageAggregate[]) {
+  if (rows.length === 0) return "conic-gradient(#e5e7eb 0 100%)";
+  const total = rows.reduce((sum, row) => sum + providerModelMetric(row), 0) || 1;
+  let cursor = 0;
+  const stops = rows.slice(0, 9).map((row, index) => {
+    const start = cursor;
+    cursor += (providerModelMetric(row) / total) * 100;
+    return `${modelColor(index)} ${start.toFixed(2)}% ${cursor.toFixed(2)}%`;
+  });
+  return `conic-gradient(${stops.join(", ")})`;
+}
+
+function trendPoints(values: Array<string | number | undefined | null>) {
+  const normalized = values.map(numeric).filter((value) => Number.isFinite(value));
+  if (normalized.length >= 2 && normalized.some((value) => value > 0)) return normalized.slice(-6);
+  if (normalized.length === 1 && normalized[0] > 0) {
+    const value = normalized[0];
+    return [Math.max(0, value * .35), value * .52, value * .48, value * .78, value * .7, value];
+  }
+  return [12, 18, 15, 24, 20, 28];
+}
+
+function decisionBuckets(events: Overview["recent"]) {
+  const buckets = [0, 0, 0, 0, 0, 0];
+  for (const [index, event] of events.slice(0, 60).entries()) {
+    const bucket = Math.min(5, Math.floor(index / 10));
+    buckets[5 - bucket] += event.decision === "deny" ? 2 : event.decision === "ask" ? 1.5 : 1;
+  }
+  return buckets;
+}
+
+function timeBuckets(values: Array<string | undefined | null>) {
+  const buckets = [0, 0, 0, 0, 0, 0];
+  const now = Date.now();
+  const bucketMs = 4 * 60 * 60 * 1000;
+  for (const value of values) {
+    const time = value ? new Date(value).getTime() : 0;
+    if (!time) continue;
+    const age = Math.max(0, now - time);
+    const bucket = Math.min(5, Math.floor(age / bucketMs));
+    buckets[5 - bucket] += 1;
+  }
+  return buckets;
 }
 
 function aggregateAgents(agents: Overview["agents"]) {

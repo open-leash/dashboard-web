@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export type AgentInventoryCard = {
   key: string;
@@ -28,17 +28,36 @@ export type AgentInventoryCard = {
 };
 
 export function AgentInventory({ agents }: { agents: AgentInventoryCard[] }) {
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [selectedKey, setSelectedKey] = useState<string | null>(() => agents[0]?.key ?? null);
   const selected = useMemo(
     () => agents.find((agent) => agent.key === selectedKey) ?? null,
     [agents, selectedKey]
   );
 
+  useEffect(() => {
+    if (selectedKey && !agents.some((agent) => agent.key === selectedKey)) {
+      setSelectedKey(agents[0]?.key ?? null);
+    }
+  }, [agents, selectedKey]);
+
   return (
     <>
       <div className="cards agentsSelectableGrid">
         {agents.map((agent) => (
-          <article key={agent.key} className={`agent-card ${selectedKey === agent.key ? "selected" : ""}`}>
+          <article
+            key={agent.key}
+            className={`agent-card ${selectedKey === agent.key ? "selected" : ""}`}
+            role="button"
+            tabIndex={0}
+            aria-expanded={selectedKey === agent.key}
+            onClick={() => setSelectedKey(agent.key)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                setSelectedKey(agent.key);
+              }
+            }}
+          >
             <div className="agent-head">
               <AgentLogo name={agent.displayName} />
               <div>
@@ -47,15 +66,10 @@ export function AgentInventory({ agents }: { agents: AgentInventoryCard[] }) {
               </div>
             </div>
             <div className="agent-stats">
-              <button
-                type="button"
-                className="agent-stat agent-stat-button"
-                onClick={() => setSelectedKey(selectedKey === agent.key ? null : agent.key)}
-                aria-expanded={selectedKey === agent.key}
-              >
+              <div className="agent-stat">
                 <div className="v">{agent.users}</div>
                 <div className="l">Users</div>
-              </button>
+              </div>
               <div className="agent-stat">
                 <div className="v">{agent.installs}</div>
                 <div className="l">Installs</div>
@@ -63,7 +77,7 @@ export function AgentInventory({ agents }: { agents: AgentInventoryCard[] }) {
             </div>
             <div className="agent-event-list">
               {agent.events.map((event) => (
-                <a className="agent-event-line" href={event.href} key={event.id}>
+                <a className="agent-event-line" href={event.href} key={event.id} onClick={(clickEvent) => clickEvent.stopPropagation()}>
                   <div className="agent-event-project">{event.project}</div>
                   <strong>{event.title}</strong>
                   <span>{event.context}</span>

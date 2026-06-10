@@ -51,6 +51,10 @@ export type OnboardingData = {
   users: Array<{ id: string; email: string; display_name: string; role?: string; department?: string; title?: string; status?: string }>;
   roles: Array<{ id: string; role: string; user_id?: string | null; group_id?: string | null; user_name?: string | null; group_name?: string | null }>;
   deploymentTokens: Array<{ id: string; label: string; mdm?: string | null; tenant_url: string; created_at: string; last_used_at?: string | null }>;
+  providerUsage?: {
+    connection_count?: string | number;
+    budget_count?: string | number;
+  } | null;
 };
 
 type OktaJwk = JsonWebKey & {

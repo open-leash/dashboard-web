@@ -1,10 +1,13 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { DashboardPage } from "../../DashboardPage";
 import type { DashboardTab } from "../../../components/DashboardShell";
 
 const sectionTabs: Record<string, DashboardTab> = {
   agents: "agents",
+  compression: "compression",
+  dlp: "dlp",
   deployment: "deployment",
+  events: "triggers",
   "external-agents": "external-agents",
   identity: "identity",
   logs: "logs",
@@ -31,6 +34,13 @@ export default async function TenantSection({
   const normalized = Object.fromEntries(
     Object.entries(query ?? {}).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value])
   );
+  if (section === "triggers") {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(normalized)) {
+      if (value) params.set(key, value);
+    }
+    redirect(`/${encodeURIComponent(slug)}/events${params.size ? `?${params.toString()}` : ""}`);
+  }
   if (slug === "skills") {
     return <DashboardPage initialTab="skills" skillsSearchParams={{ ...normalized, skillId: section }} />;
   }

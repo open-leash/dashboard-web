@@ -153,10 +153,10 @@ export function PolicyManager({ apiUrl, policies, organizationSlug }: { apiUrl: 
                     </label>
                   </div>
                   <div className="policyTriggerMeta">
-                    <Link href={policyTriggersHref(organizationSlug, title) as any}><b>{count(policy.trigger_count)}</b> triggers</Link>
+                    <Link href={policyEventsHref(organizationSlug, title) as any}><b>{count(policy.trigger_count)}</b> events</Link>
                     <span><b>{count(policy.deny_count)}</b> denied</span>
                     <span><b>{count(policy.question_count)}</b> questions</span>
-                    <span>{policy.last_triggered_at ? `Last: ${formatDate(policy.last_triggered_at)}${policy.last_agent_name ? ` by ${policy.last_agent_name}` : ""}` : "No trigger history yet"}</span>
+                    <span>{policy.last_triggered_at ? `Last: ${formatDate(policy.last_triggered_at)}${policy.last_agent_name ? ` by ${policy.last_agent_name}` : ""}` : "No event history yet"}</span>
                     <label className="policyLockRow">
                       <input
                         type="checkbox"
@@ -246,8 +246,8 @@ function policyEndpoint(url: string, organizationSlug?: string) {
   return parsed.toString();
 }
 
-function policyTriggersHref(organizationSlug: string | undefined, policyName: string) {
-  const base = organizationSlug ? `/${encodeURIComponent(organizationSlug)}/triggers` : "/triggers";
+function policyEventsHref(organizationSlug: string | undefined, policyName: string) {
+  const base = organizationSlug ? `/${encodeURIComponent(organizationSlug)}/events` : "/events";
   return `${base}?policy=${encodeURIComponent(policyName)}`;
 }
 

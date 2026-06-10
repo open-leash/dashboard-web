@@ -127,12 +127,30 @@ export function DashboardUserChip() {
   );
 }
 
+export function DashboardGreeting() {
+  const auth = useContext(AuthContext);
+  const user = auth?.user ?? readStoredUser();
+  const firstName = String(user?.display_name ?? "")
+    .trim()
+    .split(/\s+/)[0];
+  return <>{firstName ? `Hello, ${firstName}` : "Hello"}</>;
+}
+
 export function DashboardSignOutButton() {
   const auth = useContext(AuthContext);
   return (
     <button className="nav-item" type="button" onClick={() => auth?.signOut()}>
       <LogOut className="ic" />
       <span>Sign out</span>
+    </button>
+  );
+}
+
+export function DashboardSignOutIconButton() {
+  const auth = useContext(AuthContext);
+  return (
+    <button className="iconbutton logoutIconButton" type="button" aria-label="Sign out" title="Sign out" onClick={() => auth?.signOut()}>
+      <LogOut size={17} />
     </button>
   );
 }
