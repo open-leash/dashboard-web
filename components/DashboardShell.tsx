@@ -440,6 +440,204 @@ const emptyOverview: Overview = {
   usage: { sessions: [] }
 };
 
+function shouldUseDemoOverview(overview: Overview, mode: DashboardMode) {
+  if (mode === "personal") return false;
+  if (process.env.NEXT_PUBLIC_OPENLEASH_DEMO_DATA === "0") return false;
+  if (process.env.NEXT_PUBLIC_OPENLEASH_DEMO_DATA === "1") return true;
+  const visibleAgents = aggregateAgents(overview.agents);
+  const userCount = overview.users?.length || usersFromAgents(overview.agents).length;
+  return visibleAgents.length > 0 && visibleAgents.length <= 4 && userCount <= 1 && overview.recent.length === 0;
+}
+
+function demoOverview(): Overview {
+  const now = Date.now();
+  const iso = (minutesAgo: number) => new Date(now - minutesAgo * 60_000).toISOString();
+  const team = [
+    { name: "Avery Chen", email: "avery.chen@northstar.dev", host: "avery-mbp-14", agents: ["OpenCode", "OpenAI Codex", "Claude Code"] },
+    { name: "Maya Patel", email: "maya.patel@northstar.dev", host: "maya-framework-16", agents: ["Gemini", "Cursor", "Claude Code"] },
+    { name: "Jon Bell", email: "jon.bell@northstar.dev", host: "jon-thinkpad-x1", agents: ["OpenCode", "Gemini"] },
+    { name: "Priya Rao", email: "priya.rao@northstar.dev", host: "priya-studio", agents: ["OpenAI Codex", "Cursor"] }
+  ];
+  const agentInfo: Record<string, { kind: string; display: string; version: string }> = {
+    "OpenCode": { kind: "opencode", display: "OpenCode", version: "0.9.6" },
+    "Gemini": { kind: "gemini", display: "Gemini", version: "1.1.0" },
+    "OpenAI Codex": { kind: "codex", display: "OpenAI Codex", version: "0.18.2" },
+    "Claude Code": { kind: "claude-code", display: "Claude Code", version: "1.0.34" },
+    "Cursor": { kind: "cursor", display: "Cursor", version: "0.49.1" }
+  };
+  const agents: Overview["agents"] = team.flatMap((member, memberIndex) =>
+    member.agents.map((agentName, agentIndex) => {
+      const info = agentInfo[agentName];
+      const sessionTime = iso(14 + memberIndex * 19 + agentIndex * 8);
+      return {
+        id: `demo-agent-${memberIndex}-${agentIndex}`,
+        kind: info.kind,
+        display_name: info.display,
+        version: info.version,
+        hostname: member.host,
+        user_name: member.name,
+        last_seen_at: sessionTime,
+        sessions: [
+          {
+            id: `demo-session-${memberIndex}-${agentIndex}`,
+            title: `${projectName(memberIndex, agentIndex)} maintenance`,
+            summary: "Reviewed code changes, checked policy impact, and completed an approval-gated action.",
+            project_path: `/workspaces/${projectName(memberIndex, agentIndex)}`,
+            last_activity_at: sessionTime,
+            duration_seconds: 1240 + memberIndex * 280 + agentIndex * 95,
+            event_count: 8 + memberIndex + agentIndex
+          }
+        ]
+      };
+    })
+  );
+  const recent: Overview["recent"] = [
+    {
+      id: "demo-event-1",
+      decision: "ask",
+      resolution: "allow",
+      summary: "Production deploy required approval",
+      question: "Approve deployment to payments-api production?",
+      created_at: iso(18),
+      event_name: "PreToolUse",
+      tool_name: "bash",
+      project_path: "/workspaces/payments-api",
+      agent_name: "Claude Code",
+      agent_kind: "claude-code",
+      hostname: "avery-mbp-14",
+      user_name: "Avery Chen",
+      triggered_policies: [{
+        policy_name: "Production deploys",
+        status: "needs_question",
+        severity: "high",
+        explanation: "Deployment command targeted the production namespace.",
+        evidence: ["kubectl apply -n production"]
+      }]
+    },
+    {
+      id: "demo-event-2",
+      decision: "deny",
+      resolution: "deny",
+      summary: "Secret-like token was blocked before leaving the workstation",
+      created_at: iso(42),
+      event_name: "UserPromptSubmit",
+      tool_name: "prompt",
+      project_path: "/workspaces/customer-portal",
+      agent_name: "OpenAI Codex",
+      agent_kind: "codex",
+      hostname: "priya-studio",
+      user_name: "Priya Rao",
+      triggered_policies: [{
+        policy_name: "Secrets in prompts",
+        status: "failed",
+        severity: "critical",
+        explanation: "Prompt included a value matching an API key pattern.",
+        evidence: ["masked credential-like string"]
+      }]
+    },
+    {
+      id: "demo-event-3",
+      decision: "allow",
+      resolution: "allow",
+      summary: "Low-risk dependency update was logged",
+      created_at: iso(73),
+      event_name: "PostToolUse",
+      tool_name: "npm",
+      project_path: "/workspaces/web-console",
+      agent_name: "Gemini",
+      agent_kind: "gemini",
+      hostname: "maya-framework-16",
+      user_name: "Maya Patel",
+      triggered_policies: []
+    }
+  ];
+  return {
+    metrics: {
+      computers: "4",
+      agents: "5",
+      events: "128",
+      denied: "7",
+      questions: "18",
+      session_time: {
+        today_seconds: 18420,
+        today_sessions: 16,
+        last24h_seconds: 29640,
+        last24h_sessions: 24,
+        week_seconds: 148800,
+        week_sessions: 93,
+        month_seconds: 421200,
+        month_sessions: 276
+      }
+    },
+    agents,
+    recent,
+    policies: [
+      {
+        id: "demo-policy-prod",
+        name: "Production deploys",
+        category: "Approvals",
+        description: "Hold deploys, database migrations, and infrastructure changes targeting production.",
+        severity: "high",
+        natural_language_rule: "Ask for approval before any command changes production infrastructure or services.",
+        enabled: true,
+        trigger_count: 18,
+        question_count: 18,
+        last_triggered_at: iso(18),
+        last_agent_name: "Claude Code",
+        last_project_path: "/workspaces/payments-api"
+      },
+      {
+        id: "demo-policy-secrets",
+        name: "Secrets in prompts",
+        category: "DLP",
+        description: "Block API keys, tokens, and credentials before they reach an AI assistant.",
+        severity: "critical",
+        natural_language_rule: "Deny prompts or tool output containing credential-like strings.",
+        enabled: true,
+        trigger_count: 11,
+        deny_count: 7,
+        last_triggered_at: iso(42),
+        last_agent_name: "OpenAI Codex",
+        last_project_path: "/workspaces/customer-portal"
+      }
+    ],
+    users: team.map((member, index) => ({
+      id: `demo-user-${index}`,
+      email: member.email,
+      display_name: member.name,
+      role: index === 0 ? "admin" : "engineer",
+      created_at: iso(60 * 24 * (index + 3)),
+      endpoint_count: 1,
+      agent_count: member.agents.length,
+      last_seen_at: iso(12 + index * 17),
+      idp_provider: "google_workspace",
+      agents: member.agents,
+      hostnames: [member.host],
+      status: "active"
+    })),
+    usage: {
+      sessions: agents.flatMap((agent) =>
+        (agent.sessions ?? []).map((session) => ({
+          ...session,
+          user_name: agent.user_name,
+          user_email: team.find((member) => member.name === agent.user_name)?.email,
+          hostname: agent.hostname,
+          agent_kind: agent.kind,
+          agent_name: agent.display_name,
+          started_at: iso(120),
+          approval_count: agent.display_name === "Claude Code" ? 2 : 0,
+          denied_count: agent.display_name === "OpenAI Codex" ? 1 : 0
+        }))
+      )
+    }
+  };
+}
+
+function projectName(memberIndex: number, agentIndex: number) {
+  const names = ["payments-api", "customer-portal", "web-console", "identity-sync", "billing-worker", "infra-policies"];
+  return names[(memberIndex + agentIndex) % names.length];
+}
+
 export function DashboardShell({
   apiUrl,
   data,
@@ -488,7 +686,8 @@ export function DashboardShell({
   extensionTabs?: DashboardExtensionTab[];
 }) {
   const tab = initialTab;
-  const overview = data ?? emptyOverview;
+  const rawOverview = data ?? emptyOverview;
+  const overview = shouldUseDemoOverview(rawOverview, dashboardMode) ? demoOverview() : rawOverview;
   const metrics = overview.metrics;
   const recent = overview.recent;
   const agents = overview.agents;
@@ -2269,7 +2468,7 @@ function TriggersPage({
         </label>
         <label>
           <span>{personal ? "Profile" : "User"}</span>
-          <input name="user" defaultValue={filters.user ?? ""} placeholder={personal ? "You" : "Max Brin"} />
+          <input name="user" defaultValue={filters.user ?? ""} placeholder={personal ? "You" : "Avery Chen"} />
         </label>
         <label>
           <span>Policy</span>
@@ -2456,7 +2655,7 @@ function LogsPage({
         </label>
         <label>
           <span>{personal ? "Profile" : "User"}</span>
-          <input name="user" defaultValue={filters.user ?? ""} placeholder={personal ? "You" : "Max Brin"} />
+          <input name="user" defaultValue={filters.user ?? ""} placeholder={personal ? "You" : "Avery Chen"} />
           {filters.userId && <input name="userId" type="hidden" defaultValue={filters.userId} />}
         </label>
         <label>

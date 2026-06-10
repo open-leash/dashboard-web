@@ -5,8 +5,8 @@ import { KeyRound } from "lucide-react";
 import { apiFetch } from "../lib/api-client";
 
 export function TokenIssuer({ apiUrl }: { apiUrl: string }) {
-  const [email, setEmail] = useState("max.brin@openleash.com");
-  const [displayName, setDisplayName] = useState("Max Brin");
+  const [email, setEmail] = useState("avery.chen@northstar.dev");
+  const [displayName, setDisplayName] = useState("Avery Chen");
   const [token, setToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
