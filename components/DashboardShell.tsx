@@ -2148,7 +2148,7 @@ function TokensPage({ apiUrl, mode }: { apiUrl: string; mode: DashboardMode }) {
 
 function DeploymentPage({ apiUrl, mode }: { apiUrl: string; mode: DashboardMode }) {
   const personal = mode === "personal";
-  const enrollmentCommand = "/bin/bash install-openleash-personal.sh --dmg <signed-dmg-url> --tenant openleash.com --api-url https://api.openleash.com --token <deployment-token> --mode cloud --enroll --install-hooks";
+  const enrollmentCommand = "/bin/bash install-openleash-personal.sh --dmg <signed-dmg-url> --tenant <organization-slug> --api-url <managed-api-url> --token <deployment-token> --mode <cloud|self-hosted> --enroll --install-hooks";
   const mdms = [
     {
       name: "Jamf Pro",

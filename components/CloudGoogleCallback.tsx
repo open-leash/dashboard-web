@@ -47,7 +47,8 @@ export function CloudGoogleCallback({ apiUrl }: { apiUrl: string }) {
         const slug = payload.organization?.slug || "openleash-cloud";
         document.cookie = `openleash_onboarding_org=${encodeURIComponent(slug)}; Path=/; SameSite=Lax; Max-Age=86400`;
         const next = safeLocalPath(params.get("next"));
-        const destination = next || `/${encodeURIComponent(slug)}`;
+        const setupCompleted = payload.organization?.setupCompleted ?? payload.organization?.setup_completed ?? false;
+        const destination = next || (setupCompleted ? `/${encodeURIComponent(slug)}` : "/onboarding");
         if (params.get("desktop") === "1") {
           const desktop = new URL("openleash://auth/callback");
           desktop.searchParams.set("dashboard_token", token);
