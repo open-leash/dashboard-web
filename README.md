@@ -1,21 +1,40 @@
-# OpenLeash Dashboard Web 🕶️📊
+<div align="center">
 
-[![Open Core](https://img.shields.io/badge/open--core-yes-111718)](#)
-[![Next.js](https://img.shields.io/badge/next.js-15-black)](#)
-[![UI](https://img.shields.io/badge/ui-customer_dashboard-0c8b67)](#)
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:14B8A6,45:2563EB,100:111827&height=220&section=header&text=Dashboard%20Web&fontSize=52&fontColor=ffffff&fontAlignY=38&desc=The%20team%20control%20room%20for%20agents.&descSize=18&descAlignY=58" width="100%" />
 
-The shared customer dashboard for OpenLeash. This is what teams use to onboard, connect identity, manage policies, inspect triggers, issue deployment tokens, and review agent activity.
+<p>
+  <img src="https://img.shields.io/badge/Next.js-15-000000?style=for-the-badge&logo=next.js&logoColor=white" />
+  <img src="https://img.shields.io/badge/Open%20Core-Dashboard%20UI-14B8A6?style=for-the-badge&logo=github&logoColor=white" />
+  <img src="https://img.shields.io/badge/UX-operational%20security-2563EB?style=for-the-badge" />
+</p>
 
-## Product Surfaces
+<h3>📊 Policies, approvals, users, audit, and agent visibility.</h3>
 
-- Organization signup/sign-in
-- Onboarding and identity sync
-- Users, groups, roles, and deployment coverage
+</div>
+
+---
+
+## ✨ What this app is
+
+`dashboard-web` is the shared customer dashboard for OpenLeash.
+
+Teams use it to onboard, connect identity, manage users, configure policy, set BYOK evaluation keys, issue deployment tokens, review risky actions, and understand what agents are doing across their environment.
+
+---
+
+## 🧭 Product surfaces
+
+- Organization setup and sign-in
+- Identity provider configuration
+- Users, roles, and deployment coverage
 - Policies and approval flows
 - Agents, MCP servers, skills, and external-agent observability
-- Audit details for risky or blocked actions
+- Audit trails for risky, approved, denied, and held actions
+- Provider/BYOK evaluation settings
 
-## Run
+---
+
+## 🛠 Run locally
 
 ```bash
 npm install
@@ -28,26 +47,34 @@ Open:
 http://localhost:9300
 ```
 
-## Used By
+Recommended full-mode runner:
+
+```bash
+python3 run.py
+```
+
+Choose **Private Cloud** or **OpenLeash Cloud**.
+
+---
+
+## 🌐 Used by
 
 | Environment | How |
 | --- | --- |
-| Managed private cloud | Runs directly for one customer tenant. |
-| OpenLeash Cloud | Imported by `cloud-dashboard-web` and wrapped with cloud-only pages/routes. |
-| Local development | Talks to `dashboard-api` on `localhost:9319`. |
+| 🏢 Private Cloud | Runs directly for one customer tenant. |
+| ☁️ OpenLeash Cloud | Composed by `cloud-dashboard-web`. |
+| 🧪 Local dev | Talks to `dashboard-api` on `localhost:9319`. |
 
-## Compose, Do Not Fork
+---
 
-Cloud-only UI should live in `cloud-dashboard-web`. Shared customer features belong here.
+## 🎨 UI direction
 
-```tsx
-import { DashboardPage } from "@openleash/dashboard-web/DashboardPage";
+Operational, dense, calm. This is a working security console, not a marketing page.
 
-export default function TenantDashboard({ slug }: { slug: string }) {
-  return <DashboardPage tenantSlug={slug} />;
-}
-```
+Prefer readable tables, timelines, obvious states, crisp empty states, and controls that feel safe to use repeatedly.
 
-## UI Direction
+<div align="center">
 
-Operational, dense, calm. This is a working security console, not a marketing page. Prefer clear tables, readable timelines, obvious states, and boringly reliable controls.
+### Give security teams clarity without making developers feel trapped.
+
+</div>
