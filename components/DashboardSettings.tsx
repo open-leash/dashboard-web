@@ -68,6 +68,8 @@ export function DashboardSettingsPane({
 
 function ProviderUsageSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: string; organizationSlug?: string }) {
   const [provider, setProvider] = useState("cursor");
+  const [evaluationProvider, setEvaluationProvider] = useState("openai");
+  const [evaluationKey, setEvaluationKey] = useState("");
   const [label, setLabel] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [budgetProvider, setBudgetProvider] = useState("all");
@@ -94,6 +96,29 @@ function ProviderUsageSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: stri
       setMessage(`${providerLabel(provider)} connected. Usage will sync on the next run.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not connect provider.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveEvaluationKey() {
+    setSaving(true);
+    setMessage("Saving evaluation key...");
+    try {
+      const response = await apiFetch(`${apiUrl}/admin/evaluation-key${query}`, "adminProviderUsageWrite", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ provider: evaluationProvider, apiKey: evaluationKey })
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body.ok === false) {
+        setMessage(body.error || "Could not save evaluation key.");
+        return;
+      }
+      setEvaluationKey("");
+      setMessage(`${providerLabel(evaluationProvider)} evaluation key connected. OpenLeash will invoke policy evaluation from this API using your provider.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not save evaluation key.");
     } finally {
       setSaving(false);
     }
@@ -159,8 +184,32 @@ function ProviderUsageSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: stri
         <section className="transformPanel">
           <div className="transformPanelHead">
             <div>
+              <h2>Evaluation key</h2>
+              <p>For BYOK plans, store an encrypted organization key. OpenLeash invokes policy evaluation from the managed API against your provider.</p>
+            </div>
+            <KeyRound size={20} />
+          </div>
+          <div className="transformFields">
+            <label>Provider
+              <select value={evaluationProvider} onChange={(event) => setEvaluationProvider(event.target.value)}>
+                <option value="openai">OpenAI</option>
+                <option value="anthropic">Claude</option>
+                <option value="deepseek">DeepSeek</option>
+              </select>
+            </label>
+            <label className="providerKeyField">Evaluation API key
+              <input value={evaluationKey} onChange={(event) => setEvaluationKey(event.target.value)} type="password" placeholder={providerPlaceholder(evaluationProvider)} />
+            </label>
+          </div>
+          <div className="transformSaveRow">
+            <button type="button" onClick={saveEvaluationKey} disabled={saving || !evaluationKey.trim()}>{saving ? "Saving" : "Save evaluation key"}</button>
+          </div>
+        </section>
+        <section className="transformPanel">
+          <div className="transformPanelHead">
+            <div>
               <h2>Management key</h2>
-              <p>Keys are validated immediately and stored encrypted for scheduled sync.</p>
+              <p>Usage keys are separate from evaluation keys. They are validated immediately and stored encrypted for scheduled usage sync.</p>
             </div>
             <KeyRound size={20} />
           </div>
@@ -253,6 +302,7 @@ function normalizeSettingsItem(value?: string | null): SettingsItem {
 function providerLabel(value: string) {
   if (value === "openai") return "OpenAI";
   if (value === "anthropic") return "Claude";
+  if (value === "deepseek") return "DeepSeek";
   if (value === "cursor") return "Cursor";
   return "Provider";
 }
@@ -260,5 +310,6 @@ function providerLabel(value: string) {
 function providerPlaceholder(value: string) {
   if (value === "cursor") return "key_...";
   if (value === "openai") return "sk-admin-...";
+  if (value === "deepseek") return "sk-...";
   return "sk-ant-admin...";
 }
