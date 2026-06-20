@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { ChevronRight, KeyRound } from "lucide-react";
+import { ChevronRight, KeyRound, PlugZap } from "lucide-react";
+import type { PluginCatalogItem } from "@openleash/shared";
 import { DeploymentTokenIssuer } from "./DeploymentTokenIssuer";
 import { TokenIssuer } from "./TokenIssuer";
 import { IdentityProviderSetup, type OnboardingData } from "./EnterpriseOnboarding";
@@ -11,7 +12,7 @@ import { OrganizationSetupPanel } from "./OrganizationSetupPanel";
 import { DashboardRoleSettings } from "./DashboardRoleSettings";
 import { apiFetch } from "../lib/api-client";
 
-export type SettingsItem = "organization" | "identity" | "roles" | "tokens" | "providers" | "deploy";
+export type SettingsItem = "organization" | "identity" | "roles" | "tokens" | "providers" | "plugins" | "deploy";
 
 export function SettingsTree({ basePath, initialItem }: { basePath: string; initialItem?: string }) {
   const activeItem = useActiveSettingsItem(initialItem);
@@ -23,6 +24,7 @@ export function SettingsTree({ basePath, initialItem }: { basePath: string; init
       <SettingsTreeItem active={activeItem === "roles"} href={`${settingsPath}?item=roles`} label="Roles" />
       <SettingsTreeItem active={activeItem === "tokens"} href={`${settingsPath}?item=tokens`} label="Tokens" />
       <SettingsTreeItem active={activeItem === "providers"} href={`${settingsPath}?item=providers`} label="Provider usage" />
+      <SettingsTreeItem active={activeItem === "plugins"} href={`${settingsPath}?item=plugins`} label="Plugins" />
       <SettingsTreeItem active={activeItem === "deploy"} href={`${settingsPath}?item=deploy`} label="Deploy" />
     </div>
   );
@@ -51,6 +53,7 @@ export function DashboardSettingsPane({
       {activeItem === "roles" && <DashboardRoleSettings apiUrl={apiUrl} initialData={onboardingData} organizationSlug={organizationSlug} />}
       {activeItem === "tokens" && <TokensSettingsPanel apiUrl={apiUrl} />}
       {activeItem === "providers" && <ProviderUsageSettingsPanel apiUrl={apiUrl} organizationSlug={organizationSlug} />}
+      {activeItem === "plugins" && <PluginSettingsPanel apiUrl={apiUrl} organizationSlug={organizationSlug} />}
       {activeItem === "deploy" && (
         <section className="setupPanel">
           <div className="setupPanelHead">
@@ -62,6 +65,187 @@ export function DashboardSettingsPane({
           <DeploymentTokenIssuer apiUrl={apiUrl} />
         </section>
       )}
+    </div>
+  );
+}
+
+function PluginSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: string; organizationSlug?: string }) {
+  const [plugins, setPlugins] = useState<PluginCatalogItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [savingId, setSavingId] = useState("");
+  const [message, setMessage] = useState("");
+  const query = organizationSlug ? `?organizationSlug=${encodeURIComponent(organizationSlug)}` : "";
+
+  useEffect(() => {
+    let alive = true;
+    async function load() {
+      setLoading(true);
+      try {
+        const response = await apiFetch(`${apiUrl}/admin/plugins${query}`, "adminPluginsRead");
+        const body = await response.json().catch(() => ({}));
+        if (alive && response.ok) setPlugins(Array.isArray(body.plugins) ? body.plugins : []);
+        if (alive && !response.ok) setMessage(body.error || "Could not load plugins.");
+      } catch (error) {
+        if (alive) setMessage(error instanceof Error ? error.message : "Could not load plugins.");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    }
+    void load();
+    return () => {
+      alive = false;
+    };
+  }, [apiUrl, query]);
+
+  async function savePlugin(plugin: PluginCatalogItem, patch: Partial<PluginCatalogItem["settings"]>) {
+    const nextSettings = {
+      ...plugin.settings,
+      ...patch,
+      config: patch.config ?? plugin.settings.config ?? {}
+    };
+    setPlugins((items) => items.map((item) => item.id === plugin.id ? { ...item, settings: nextSettings } : item));
+    setSavingId(plugin.id);
+    setMessage("");
+    try {
+      const response = await apiFetch(`${apiUrl}/admin/plugins/${encodeURIComponent(plugin.id)}/settings${query}`, "adminPluginsWrite", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          enabled: nextSettings.enabled,
+          config: nextSettings.config,
+          orderingPriority: nextSettings.orderingPriority
+        })
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(body.error || `Could not save ${plugin.name}.`);
+        return;
+      }
+      setPlugins((items) => items.map((item) => item.id === plugin.id ? { ...item, settings: { ...nextSettings, ...body.settings } } : item));
+      setMessage(`${plugin.name} settings saved.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : `Could not save ${plugin.name}.`);
+    } finally {
+      setSavingId("");
+    }
+  }
+
+  return (
+    <section className="setupPanel">
+      <div className="setupPanelHead">
+        <div>
+          <h3>Plugins</h3>
+          <p className="setupCopy compact">Choose which pipeline plugins are installed for deployed desktop clients and set their organization defaults.</p>
+        </div>
+      </div>
+      {message && <p className="setupCopy compact">{message}</p>}
+      {loading ? <p className="setupCopy compact">Loading plugins...</p> : (
+        <div className="transformSettings">
+          {plugins.map((plugin) => (
+            <section className="transformPanel" key={plugin.id}>
+              <div className="transformPanelHead">
+                <div>
+                  <h2>{plugin.name}</h2>
+                  <p>{plugin.description}</p>
+                </div>
+                <PlugZap size={20} />
+              </div>
+              <div className="transformFields">
+                <label>Install for employees
+                  <select
+                    value={plugin.settings.enabled ? "enabled" : "disabled"}
+                    onChange={(event) => void savePlugin(plugin, { enabled: event.target.value === "enabled" })}
+                    disabled={savingId === plugin.id}
+                  >
+                    <option value="enabled">Installed</option>
+                    <option value="disabled">Disabled</option>
+                  </select>
+                </label>
+                <label>Order priority
+                  <input
+                    value={String(plugin.settings.orderingPriority ?? plugin.ordering?.priority ?? "")}
+                    inputMode="numeric"
+                    onChange={(event) => {
+                      const value = event.target.value.trim();
+                      void savePlugin(plugin, { orderingPriority: value ? Number(value) : null });
+                    }}
+                    disabled={savingId === plugin.id}
+                  />
+                </label>
+              </div>
+              <PluginConfigFields plugin={plugin} saving={savingId === plugin.id} onChange={(config) => void savePlugin(plugin, { config })} />
+              <div className="transformSaveRow">
+                <span>{plugin.stages.join(", ")}</span>
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function PluginConfigFields({
+  plugin,
+  saving,
+  onChange
+}: {
+  plugin: PluginCatalogItem;
+  saving: boolean;
+  onChange: (config: Record<string, unknown>) => void;
+}) {
+  const properties = plugin.configSchema?.properties ?? {};
+  const keys = Object.keys(properties).filter((key) => key !== "enabled");
+  if (keys.length === 0) return null;
+  const config = plugin.settings.config ?? {};
+  return (
+    <div className="transformFields">
+      {keys.map((key) => {
+        const schema = properties[key] as { type?: string; enum?: unknown[]; items?: { enum?: unknown[] } };
+        const value = config[key] ?? plugin.defaultConfig?.[key];
+        if (Array.isArray(schema.enum)) {
+          return (
+            <label key={key}>{settingLabel(key)}
+              <select value={String(value ?? "")} onChange={(event) => onChange({ ...config, [key]: event.target.value })} disabled={saving}>
+                {schema.enum.map((item) => <option key={String(item)} value={String(item)}>{String(item)}</option>)}
+              </select>
+            </label>
+          );
+        }
+        if (schema.type === "boolean") {
+          return (
+            <label key={key}>{settingLabel(key)}
+              <select value={value ? "true" : "false"} onChange={(event) => onChange({ ...config, [key]: event.target.value === "true" })} disabled={saving}>
+                <option value="true">On</option>
+                <option value="false">Off</option>
+              </select>
+            </label>
+          );
+        }
+        if (schema.type === "array" && Array.isArray(schema.items?.enum)) {
+          const selected = new Set(Array.isArray(value) ? value.map(String) : []);
+          return (
+            <label key={key}>{settingLabel(key)}
+              <select
+                multiple
+                value={[...selected]}
+                onChange={(event) => onChange({
+                  ...config,
+                  [key]: Array.from(event.currentTarget.selectedOptions).map((option) => option.value)
+                })}
+                disabled={saving}
+              >
+                {schema.items.enum.map((item) => <option key={String(item)} value={String(item)}>{String(item)}</option>)}
+              </select>
+            </label>
+          );
+        }
+        return (
+          <label key={key}>{settingLabel(key)}
+            <input value={String(value ?? "")} onChange={(event) => onChange({ ...config, [key]: event.target.value })} disabled={saving} />
+          </label>
+        );
+      })}
     </div>
   );
 }
@@ -295,8 +479,15 @@ function useActiveSettingsItem(initialItem?: string) {
 }
 
 function normalizeSettingsItem(value?: string | null): SettingsItem {
-  if (value === "identity" || value === "roles" || value === "tokens" || value === "providers" || value === "deploy" || value === "organization") return value;
+  if (value === "identity" || value === "roles" || value === "tokens" || value === "providers" || value === "plugins" || value === "deploy" || value === "organization") return value;
   return "organization";
+}
+
+function settingLabel(value: string) {
+  return value
+    .replace(/([A-Z])/g, " $1")
+    .replace(/[_-]+/g, " ")
+    .replace(/^./, (char) => char.toUpperCase());
 }
 
 function providerLabel(value: string) {
