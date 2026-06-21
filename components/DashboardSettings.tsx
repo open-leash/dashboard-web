@@ -71,6 +71,10 @@ export function DashboardSettingsPane({
 
 function PluginSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: string; organizationSlug?: string }) {
   const [plugins, setPlugins] = useState<PluginCatalogItem[]>([]);
+  const [marketplacePolicy, setMarketplacePolicy] = useState({
+    allowUserMarketplaceInstalls: true,
+    allowUserCommunityPlugins: true
+  });
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState("");
   const [message, setMessage] = useState("");
@@ -83,7 +87,10 @@ function PluginSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: string; org
       try {
         const response = await apiFetch(`${apiUrl}/admin/plugins${query}`, "adminPluginsRead");
         const body = await response.json().catch(() => ({}));
-        if (alive && response.ok) setPlugins(Array.isArray(body.plugins) ? body.plugins : []);
+        if (alive && response.ok) {
+          setPlugins(Array.isArray(body.plugins) ? body.plugins : []);
+          if (body.marketplacePolicy) setMarketplacePolicy(body.marketplacePolicy);
+        }
         if (alive && !response.ok) setMessage(body.error || "Could not load plugins.");
       } catch (error) {
         if (alive) setMessage(error instanceof Error ? error.message : "Could not load plugins.");
@@ -130,35 +137,157 @@ function PluginSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: string; org
     }
   }
 
+  async function saveMarketplacePolicy(patch: Partial<typeof marketplacePolicy>) {
+    const nextPolicy = { ...marketplacePolicy, ...patch };
+    setMarketplacePolicy(nextPolicy);
+    setSavingId("marketplace-policy");
+    setMessage("");
+    try {
+      const response = await apiFetch(`${apiUrl}/admin/plugin-marketplace/policy${query}`, "adminPluginsWrite", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(nextPolicy)
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(body.error || "Could not save plugin access policy.");
+        return;
+      }
+      if (body.marketplacePolicy) setMarketplacePolicy(body.marketplacePolicy);
+      setMessage("Plugin access policy saved.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not save plugin access policy.");
+    } finally {
+      setSavingId("");
+    }
+  }
+
+  async function savePluginPolicy(plugin: PluginCatalogItem, patch: Partial<NonNullable<PluginCatalogItem["organizationPolicy"]>>) {
+    const nextPolicy = {
+      mandatory: Boolean(plugin.organizationPolicy?.mandatory),
+      defaultEnabled: Boolean(plugin.organizationPolicy?.defaultEnabled),
+      userInstallAllowed: plugin.organizationPolicy?.userInstallAllowed !== false,
+      ...patch
+    };
+    if (nextPolicy.mandatory) nextPolicy.defaultEnabled = true;
+    setPlugins((items) => items.map((item) => item.id === plugin.id ? {
+      ...item,
+      organizationPolicy: nextPolicy,
+      settings: nextPolicy.mandatory ? { ...item.settings, enabled: true } : item.settings
+    } : item));
+    setSavingId(`${plugin.id}:policy`);
+    setMessage("");
+    try {
+      const response = await apiFetch(`${apiUrl}/admin/plugins/${encodeURIComponent(plugin.id)}/policy${query}`, "adminPluginsWrite", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(nextPolicy)
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setMessage(body.error || `Could not save ${plugin.name} policy.`);
+        return;
+      }
+      setPlugins((items) => items.map((item) => item.id === plugin.id ? { ...item, organizationPolicy: body.policy ?? nextPolicy } : item));
+      setMessage(`${plugin.name} policy saved.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : `Could not save ${plugin.name} policy.`);
+    } finally {
+      setSavingId("");
+    }
+  }
+
   return (
     <section className="setupPanel">
       <div className="setupPanelHead">
         <div>
           <h3>Plugins</h3>
-          <p className="setupCopy compact">Choose which pipeline plugins are installed for deployed desktop clients and set their organization defaults.</p>
+          <p className="setupCopy compact">Preconfigure mandatory plugins, employee plugin access, and organization defaults for deployed desktop clients.</p>
         </div>
       </div>
       {message && <p className="setupCopy compact">{message}</p>}
       {loading ? <p className="setupCopy compact">Loading plugins...</p> : (
         <div className="transformSettings">
+          <section className="transformPanel">
+            <div className="transformPanelHead">
+              <div>
+                <h2>Plugin access</h2>
+                <p>Control whether employees can add their own plugins from the approved OpenLeash plugin catalog.</p>
+              </div>
+              <PlugZap size={20} />
+            </div>
+            <div className="transformFields">
+              <label>Employee plugin installs
+                <select
+                  value={marketplacePolicy.allowUserMarketplaceInstalls ? "allowed" : "blocked"}
+                  onChange={(event) => void saveMarketplacePolicy({ allowUserMarketplaceInstalls: event.target.value === "allowed" })}
+                  disabled={savingId === "marketplace-policy"}
+                >
+                  <option value="allowed">Allowed</option>
+                  <option value="blocked">Blocked</option>
+                </select>
+              </label>
+              <label>Plugin sources
+                <select
+                  value={marketplacePolicy.allowUserCommunityPlugins ? "reviewed" : "openleash"}
+                  onChange={(event) => void saveMarketplacePolicy({ allowUserCommunityPlugins: event.target.value === "reviewed" })}
+                  disabled={savingId === "marketplace-policy"}
+                >
+                  <option value="reviewed">All reviewed plugins</option>
+                  <option value="openleash">OpenLeash plugins only</option>
+                </select>
+              </label>
+            </div>
+          </section>
           {plugins.map((plugin) => (
             <section className="transformPanel" key={plugin.id}>
               <div className="transformPanelHead">
                 <div>
                   <h2>{plugin.name}</h2>
-                  <p>{plugin.description}</p>
+                  <p>{plugin.marketplace?.shortDescription ?? plugin.description}</p>
+                  <p className="setupCopy compact">By {plugin.marketplace?.developerName ?? plugin.publisher} · {plugin.slug ?? plugin.id}</p>
                 </div>
                 <PlugZap size={20} />
               </div>
               <div className="transformFields">
-                <label>Install for employees
+                <label>Organization install
                   <select
                     value={plugin.settings.enabled ? "enabled" : "disabled"}
                     onChange={(event) => void savePlugin(plugin, { enabled: event.target.value === "enabled" })}
-                    disabled={savingId === plugin.id}
+                    disabled={savingId === plugin.id || plugin.organizationPolicy?.mandatory}
                   >
-                    <option value="enabled">Installed</option>
+                    <option value="enabled">Enabled</option>
                     <option value="disabled">Disabled</option>
+                  </select>
+                </label>
+                <label>Mandatory for employees
+                  <select
+                    value={plugin.organizationPolicy?.mandatory ? "mandatory" : "optional"}
+                    onChange={(event) => void savePluginPolicy(plugin, { mandatory: event.target.value === "mandatory" })}
+                    disabled={savingId === `${plugin.id}:policy`}
+                  >
+                    <option value="optional">Optional</option>
+                    <option value="mandatory">Mandatory installed</option>
+                  </select>
+                </label>
+                <label>Default for new users
+                  <select
+                    value={plugin.organizationPolicy?.defaultEnabled ? "enabled" : "disabled"}
+                    onChange={(event) => void savePluginPolicy(plugin, { defaultEnabled: event.target.value === "enabled" })}
+                    disabled={savingId === `${plugin.id}:policy` || plugin.organizationPolicy?.mandatory}
+                  >
+                    <option value="enabled">Added by default</option>
+                    <option value="disabled">Not added by default</option>
+                  </select>
+                </label>
+                <label>User choice
+                  <select
+                    value={plugin.organizationPolicy?.userInstallAllowed === false ? "blocked" : "allowed"}
+                    onChange={(event) => void savePluginPolicy(plugin, { userInstallAllowed: event.target.value === "allowed" })}
+                    disabled={savingId === `${plugin.id}:policy` || plugin.organizationPolicy?.mandatory}
+                  >
+                    <option value="allowed">Users can add/remove</option>
+                    <option value="blocked">Admins only</option>
                   </select>
                 </label>
                 <label>Order priority
@@ -174,9 +303,6 @@ function PluginSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: string; org
                 </label>
               </div>
               <PluginConfigFields plugin={plugin} saving={savingId === plugin.id} onChange={(config) => void savePlugin(plugin, { config })} />
-              <div className="transformSaveRow">
-                <span>{plugin.stages.join(", ")}</span>
-              </div>
             </section>
           ))}
         </div>
@@ -242,12 +368,21 @@ function PluginConfigFields({
         }
         return (
           <label key={key}>{settingLabel(key)}
-            <input value={String(value ?? "")} onChange={(event) => onChange({ ...config, [key]: event.target.value })} disabled={saving} />
+            <input
+              type={secretSetting(key) ? "password" : "text"}
+              value={String(value ?? "")}
+              onChange={(event) => onChange({ ...config, [key]: event.target.value })}
+              disabled={saving}
+            />
           </label>
         );
       })}
     </div>
   );
+}
+
+function secretSetting(key: string) {
+  return /token|secret|key|password/i.test(key);
 }
 
 function ProviderUsageSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: string; organizationSlug?: string }) {
