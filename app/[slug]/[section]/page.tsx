@@ -13,6 +13,7 @@ const sectionTabs: Record<string, DashboardTab> = {
   logs: "logs",
   mcps: "mcps",
   policies: "policies",
+  security: "security",
   settings: "settings",
   setup: "setup",
   skills: "skills",
@@ -55,6 +56,7 @@ export default async function TenantSection({
       triggerSearchParams={initialTab === "triggers" ? normalized : undefined}
       logsSearchParams={initialTab === "logs" ? normalized : undefined}
       usageSearchParams={initialTab === "usage" ? normalized : undefined}
+      securitySearchParams={initialTab === "security" ? normalized : undefined}
       skillsSearchParams={initialTab === "skills" ? normalized : undefined}
       settingsSearchParams={initialTab === "settings" || initialTab === "setup" ? normalized : undefined}
       tenantSlug={slug}

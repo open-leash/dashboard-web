@@ -1,4 +1,4 @@
-import { DashboardShell, type DashboardExtensionTab, type DashboardTab, type LogsData, type McpServersData, type Overview, type ProviderUsageData, type SkillsData } from "../components/DashboardShell";
+import { DashboardShell, type DashboardExtensionTab, type DashboardTab, type LogsData, type McpServersData, type Overview, type ProviderUsageData, type SecurityData, type SkillsData } from "../components/DashboardShell";
 import { DashboardAuthGate } from "../components/DashboardAuth";
 import { apiFetch } from "../lib/api-client";
 import { cookies } from "next/headers";
@@ -97,6 +97,22 @@ async function getProviderUsage(searchParams?: Record<string, string | undefined
   }
 }
 
+async function getSecurity(searchParams?: Record<string, string | undefined>, tenantSlug?: string, authToken?: string): Promise<SecurityData | null> {
+  const api = process.env.OPENLEASH_API_URL ?? "http://localhost:9319";
+  const query = new URLSearchParams();
+  if (tenantSlug) query.set("organizationSlug", tenantSlug);
+  if (searchParams?.range === "7d") query.set("days", "7");
+  if (searchParams?.range === "30d") query.set("days", "30");
+  if (searchParams?.range === "all") query.set("days", "180");
+  try {
+    const response = await apiFetch(`${api}/admin/security?${query.toString()}`, "adminSecurity", requestOptions(authToken));
+    if (!response.ok) return null;
+    return response.json();
+  } catch {
+    return null;
+  }
+}
+
 async function getMcpServers(tenantSlug?: string, authToken?: string): Promise<McpServersData | null> {
   const api = process.env.OPENLEASH_API_URL ?? "http://localhost:9319";
   try {
@@ -138,6 +154,7 @@ export async function DashboardPage({
   triggerSearchParams,
   logsSearchParams,
   usageSearchParams,
+  securitySearchParams,
   usersSearchParams,
   skillsSearchParams,
   settingsSearchParams,
@@ -150,6 +167,7 @@ export async function DashboardPage({
   triggerSearchParams?: Record<string, string | undefined>;
   logsSearchParams?: Record<string, string | undefined>;
   usageSearchParams?: Record<string, string | undefined>;
+  securitySearchParams?: Record<string, string | undefined>;
   usersSearchParams?: Record<string, string | undefined>;
   skillsSearchParams?: Record<string, string | undefined>;
   settingsSearchParams?: Record<string, string | undefined>;
@@ -160,7 +178,7 @@ export async function DashboardPage({
   const deploymentMode = (process.env.OPENLEASH_DEPLOYMENT_MODE ?? process.env.OPENLEASH_EDITION ?? "cloud").toLowerCase().includes("private") || (process.env.OPENLEASH_DEPLOYMENT_MODE ?? "").toLowerCase().includes("onprem") ? "private" : "cloud";
   const tenantDomain = process.env.OPENLEASH_TENANT_DOMAIN ?? "openleash.com";
   const authToken = await dashboardSessionCookie();
-  const [data, triggerData, triggerDetail, logsData, logDetail, externalAgents, providerUsage, mcpServers, skills, onboardingData] = await Promise.all([
+  const [data, triggerData, triggerDetail, logsData, logDetail, externalAgents, providerUsage, securityData, mcpServers, skills, onboardingData] = await Promise.all([
     getOverview(tenantSlug, authToken),
     initialTab === "triggers" ? getTriggers(triggerSearchParams, tenantSlug, authToken) : Promise.resolve(null),
     triggerId ? getTriggerDetail(triggerId, tenantSlug, authToken) : Promise.resolve(null),
@@ -168,6 +186,7 @@ export async function DashboardPage({
     logId ? getLogDetail(logId, tenantSlug, authToken) : Promise.resolve(null),
     initialTab === "external-agents" ? getExternalAgents(tenantSlug, authToken) : Promise.resolve(null),
     initialTab === "usage" ? getProviderUsage(usageSearchParams, tenantSlug, authToken) : Promise.resolve(null),
+    initialTab === "security" ? getSecurity(securitySearchParams, tenantSlug, authToken) : Promise.resolve(null),
     initialTab === "mcps" ? getMcpServers(tenantSlug, authToken) : Promise.resolve(null),
     initialTab === "skills" ? getSkills(tenantSlug, authToken) : Promise.resolve(null),
     getOnboarding(tenantSlug)
@@ -183,11 +202,13 @@ export async function DashboardPage({
       triggerSearchParams={triggerSearchParams}
       logsSearchParams={logsSearchParams}
       usageSearchParams={usageSearchParams}
+      securitySearchParams={securitySearchParams}
       usersSearchParams={usersSearchParams}
       skillsSearchParams={skillsSearchParams}
       settingsSearchParams={settingsSearchParams}
       externalAgents={externalAgents}
       providerUsage={providerUsage}
+      securityData={securityData}
       mcpServers={mcpServers}
       skills={skills}
       onboardingData={onboardingData}

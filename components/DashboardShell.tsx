@@ -197,7 +197,7 @@ type ConversationTurnView = {
   at?: string;
 };
 
-export type CoreDashboardTab = "overview" | "usage" | "setup" | "settings" | "triggers" | "users" | "identity" | "agents" | "external-agents" | "mcps" | "skills" | "policies" | "compression" | "dlp" | "tokens" | "deployment";
+export type CoreDashboardTab = "overview" | "security" | "usage" | "setup" | "settings" | "triggers" | "users" | "identity" | "agents" | "external-agents" | "mcps" | "skills" | "policies" | "compression" | "dlp" | "tokens" | "deployment";
 export type DashboardTab = CoreDashboardTab | (string & {});
 export type DashboardExtensionTab = {
   id: string;
@@ -276,6 +276,49 @@ export type SkillsData = {
     created_at: string;
     user_name?: string | null;
   }>;
+};
+
+export type SecurityData = {
+  range?: { days: number; since: string };
+  summary?: {
+    total_signals?: string | number;
+    findings?: string | number;
+    high_severity?: string | number;
+    contained?: string | number;
+    affected_users?: string | number;
+  };
+  signals: Array<{
+    id: string;
+    plugin_id: string;
+    kind: string;
+    severity: string;
+    title: string;
+    summary?: string | null;
+    decision?: string | null;
+    status?: string | null;
+    target?: { type?: string; name?: string; id?: string };
+    details?: Record<string, unknown>;
+    correlation_keys?: string[];
+    occurred_at?: string;
+    created_at: string;
+    user_id?: string | null;
+    user_email?: string | null;
+    user_name?: string | null;
+    hostname?: string | null;
+    agent_kind?: string | null;
+    agent_name?: string | null;
+    event_name?: string | null;
+    tool_name?: string | null;
+    project_path?: string | null;
+    evaluation_id?: string | null;
+  }>;
+  byPlugin: Array<{ plugin_id: string; kind: string; severity: string; count: string | number }>;
+  byUser: Array<{ user_id?: string | null; email?: string | null; name?: string | null; signal_count: string | number; high_count: string | number; last_signal_at?: string | null }>;
+  usage: {
+    byPlugin: Array<{ plugin_id: string; kind: string; provider?: string | null; model?: string | null; records: string | number; input_tokens?: string | number; output_tokens?: string | number; saved_tokens?: string | number; estimated_cost_cents?: string | number }>;
+    byUser: Array<{ user_id?: string | null; email?: string | null; name?: string | null; records: string | number; input_tokens?: string | number; output_tokens?: string | number; saved_tokens?: string | number; estimated_cost_cents?: string | number; last_usage_at?: string | null }>;
+  };
+  correlations: Array<{ correlation_key: string; signal_count: string | number; plugin_count: string | number; user_count: string | number; last_signal_at?: string | null; plugin_ids?: string[] }>;
 };
 
 export type LogsData = {
@@ -648,11 +691,13 @@ export function DashboardShell({
   triggerSearchParams,
   logsSearchParams,
   usageSearchParams,
+  securitySearchParams,
   usersSearchParams,
   skillsSearchParams,
   settingsSearchParams,
   externalAgents,
   providerUsage,
+  securityData,
   mcpServers,
   skills,
   onboardingData,
@@ -671,11 +716,13 @@ export function DashboardShell({
   triggerSearchParams?: Record<string, string | undefined>;
   logsSearchParams?: Record<string, string | undefined>;
   usageSearchParams?: Record<string, string | undefined>;
+  securitySearchParams?: Record<string, string | undefined>;
   usersSearchParams?: Record<string, string | undefined>;
   skillsSearchParams?: Record<string, string | undefined>;
   settingsSearchParams?: Record<string, string | undefined>;
   externalAgents?: ExternalAgentsData | null;
   providerUsage?: ProviderUsageData | null;
+  securityData?: SecurityData | null;
   mcpServers?: McpServersData | null;
   skills?: SkillsData | null;
   onboardingData?: OnboardingData | null;
@@ -723,6 +770,7 @@ export function DashboardShell({
             ) : null}
           />
         )}
+        {tab === "security" && <SecurityPage data={securityData} mode={dashboardMode} basePath={basePath} range={securitySearchParams?.range} />}
         {tab === "usage" && <UsagePage sessions={usageSessions} users={users} providerUsage={providerUsage} mode={dashboardMode} basePath={basePath} range={usageSearchParams?.range} view={usageSearchParams?.view} />}
         {(tab === "setup" || tab === "settings") && <SettingsPage apiUrl={apiUrl} onboardingData={onboardingData ?? null} tenantDomain={tenantDomain} tenantSlug={tenantSlug} mode={dashboardMode} settingsItem={settingsSearchParams?.item} />}
         {tab === "triggers" && <TriggersPage triggers={triggerData?.triggers ?? []} detail={triggerDetail?.trigger} filters={triggerSearchParams ?? {}} mode={dashboardMode} basePath={basePath} />}
@@ -796,6 +844,7 @@ function Sidebar({
       </div>
       <nav className="nav" aria-label="Dashboard sections">
         <NavButton active={tab === "overview"} href={dashboardHref(basePath, "/")} icon={<Home />} label="Home" />
+        {!personal && <NavButton active={tab === "security"} href={dashboardHref(basePath, "/security")} icon={<Shield />} label="Security" />}
         <NavButton active={tab === "agents"} href={dashboardHref(basePath, "/agents")} icon={<Bot />} label={personal ? "My agents" : "Agents"} badge={agentsCount || undefined} />
         {!personal && <NavButton active={tab === "users"} href={dashboardHref(basePath, "/users")} icon={<Users />} label="Users" badge={usersCount || undefined} />}
         <NavButton active={tab === "usage"} href={dashboardHref(basePath, "/usage")} icon={<Clock3 />} label="Usage" />
@@ -835,7 +884,7 @@ function Sidebar({
   );
 }
 
-type DashboardHref = "/" | "/usage" | "/setup" | "/settings" | "/events" | "/triggers" | "/logs" | "/users" | "/identity" | "/agents" | "/external-agents" | "/mcps" | "/skills" | "/policies" | "/compression" | "/dlp" | "/tokens" | "/deployment";
+type DashboardHref = "/" | "/security" | "/usage" | "/setup" | "/settings" | "/events" | "/triggers" | "/logs" | "/users" | "/identity" | "/agents" | "/external-agents" | "/mcps" | "/skills" | "/policies" | "/compression" | "/dlp" | "/tokens" | "/deployment";
 
 function dashboardHref(basePath: string, href: DashboardHref | string) {
   if (!basePath) return href;
@@ -1413,6 +1462,129 @@ function sentenceTitle(value: string) {
   const clean = value.replace(/\s+/g, " ").replace(/[.?!]+$/, "").trim();
   if (!clean) return "Agent action";
   return clean.charAt(0).toUpperCase() + clean.slice(1);
+}
+
+function SecurityPage({ data, mode, basePath, range }: { data?: SecurityData | null; mode: DashboardMode; basePath: string; range?: string }) {
+  const personal = mode === "personal";
+  const selectedRange = range === "7d" ? "7d" : range === "all" ? "all" : "30d";
+  const ranges = [{ label: "7d", value: "7d" }, { label: "30d", value: "30d" }, { label: "All", value: "all" }];
+  const securityHref = (nextRange: string) => {
+    const params = new URLSearchParams();
+    if (nextRange !== "30d") params.set("range", nextRange);
+    return `${dashboardHref(basePath, "/security")}${params.size ? `?${params.toString()}` : ""}` as any;
+  };
+  const summary = data?.summary ?? {};
+  const signals = data?.signals ?? [];
+  const correlations = data?.correlations ?? [];
+  const byPlugin = aggregateSecurityPlugins(data?.byPlugin ?? []);
+  const usageByPlugin = data?.usage?.byPlugin ?? [];
+  const usageByUser = data?.usage?.byUser ?? [];
+  return (
+    <>
+      <Topbar />
+      <div className="page-head">
+        <div>
+          <h1>Security</h1>
+          <p className="sub">{personal ? "Security outcomes from your OpenLeash runtime." : "Incidents, findings, correlations, and cost signals across OpenLeash plugins."}</p>
+        </div>
+        <div className="usageRange">
+          {ranges.map((item) => <Link key={item.value} className={item.value === selectedRange ? "active" : ""} href={securityHref(item.value)}>{item.label}</Link>)}
+        </div>
+      </div>
+      <div className="divider" />
+      <div className="stat-row">
+        <Stat icon={<ShieldAlert />} label="Findings" value={formatCount(summary.findings)} />
+        <Stat icon={<AlertTriangle />} label="High severity" value={formatCount(summary.high_severity)} />
+        <Stat icon={<Ban />} label="Contained" value={formatCount(summary.contained)} />
+        <Stat icon={<Users />} label="Affected users" value={formatCount(summary.affected_users)} />
+      </div>
+      <div className="usageGrid single">
+        <section className="usagePanel">
+          <div className="card-title"><h3>Latest incidents and findings</h3><div className="right"><span className="sync-pill">{formatCount(summary.total_signals)} signals</span></div></div>
+          <div className="usageSessionList">
+            {signals.slice(0, 40).map((signal) => (
+              <article className="usageSession" key={signal.id}>
+                <div>
+                  <strong>{signal.title}</strong>
+                  <p>{signal.summary || signal.target?.name || signal.kind} · {signal.user_name || signal.user_email || "Unknown user"} · {signal.agent_name || signal.agent_kind || "agent"} · {pluginName(signal.plugin_id)}</p>
+                </div>
+                <div className="usageSessionStats">
+                  <span>{signal.severity}</span>
+                  <span>{signal.decision || signal.status || "observed"}</span>
+                  <span>{relativeTime(signal.created_at)}</span>
+                </div>
+              </article>
+            ))}
+            {signals.length === 0 && <Empty text="No plugin security signals in this range." />}
+          </div>
+        </section>
+        <section className="usagePanel">
+          <div className="card-title"><h3>Cross-plugin correlations</h3><div className="right"><span className="sync-pill">{correlations.length} active</span></div></div>
+          <div className="usageTable">
+            <div className="usageTableHead provider"><span>Correlation</span><span>Signals</span><span>Plugins</span><span>Users</span><span>Latest</span></div>
+            {correlations.map((row) => (
+              <div className="usageTableRow provider" key={row.correlation_key}>
+                <span><strong>{row.correlation_key}</strong><small>{(row.plugin_ids ?? []).map(pluginName).join(", ") || "OpenLeash"}</small></span>
+                <span>{formatCount(row.signal_count)}</span>
+                <span>{formatCount(row.plugin_count)}</span>
+                <span>{formatCount(row.user_count)}</span>
+                <span>{row.last_signal_at ? relativeTime(row.last_signal_at) : "Never"}</span>
+              </div>
+            ))}
+            {correlations.length === 0 && <Empty text="No cross-plugin correlations yet." />}
+          </div>
+        </section>
+        <section className="usagePanel">
+          <div className="card-title"><h3>Signal sources</h3><div className="right"><span className="sync-pill">plugin contribution</span></div></div>
+          <div className="usageTable">
+            <div className="usageTableHead provider"><span>Source</span><span>Signals</span><span>High</span><span>Kinds</span><span>Criticality</span></div>
+            {byPlugin.map((row) => (
+              <div className="usageTableRow provider" key={row.pluginId}>
+                <span><strong>{pluginName(row.pluginId)}</strong><small>{row.kinds.join(", ")}</small></span>
+                <span>{formatCount(row.count)}</span>
+                <span>{formatCount(row.high)}</span>
+                <span>{formatCount(row.kinds.length)}</span>
+                <span>{row.high > 0 ? "needs review" : "normal"}</span>
+              </div>
+            ))}
+            {byPlugin.length === 0 && <Empty text="No plugin security contribution in this range." />}
+          </div>
+        </section>
+        <section className="usagePanel">
+          <div className="card-title"><h3>Plugin-reported cost and usage</h3><div className="right"><span className="sync-pill">{formatCount(usageByPlugin.length)} sources</span></div></div>
+          <div className="usageTable">
+            <div className="usageTableHead provider"><span>Plugin</span><span>Model</span><span>Tokens</span><span>Saved</span><span>Cost</span></div>
+            {usageByPlugin.slice(0, 20).map((row) => (
+              <div className="usageTableRow provider" key={`${row.plugin_id}:${row.kind}:${row.model ?? ""}`}>
+                <span><strong>{pluginName(row.plugin_id)}</strong><small>{row.kind}</small></span>
+                <span>{row.model || row.provider || "plugin"}</span>
+                <span>{formatCompactNumber(numeric(row.input_tokens) + numeric(row.output_tokens))}</span>
+                <span>{formatCompactNumber(row.saved_tokens)}</span>
+                <span>{formatCurrencyCents(row.estimated_cost_cents)}</span>
+              </div>
+            ))}
+            {usageByPlugin.length === 0 && <Empty text="No plugin-reported cost yet." />}
+          </div>
+        </section>
+        <section className="usagePanel">
+          <div className="card-title"><h3>Employees by plugin usage</h3></div>
+          <div className="usageTable">
+            <div className="usageTableHead provider"><span>Employee</span><span>Records</span><span>Tokens</span><span>Saved</span><span>Cost</span></div>
+            {usageByUser.slice(0, 20).map((row) => (
+              <div className="usageTableRow provider" key={row.user_id || row.email || row.name || "unknown"}>
+                <span><strong>{row.name || row.email || "Unknown user"}</strong><small>{row.email || "No synced email"}</small></span>
+                <span>{formatCount(row.records)}</span>
+                <span>{formatCompactNumber(numeric(row.input_tokens) + numeric(row.output_tokens))}</span>
+                <span>{formatCompactNumber(row.saved_tokens)}</span>
+                <span>{formatCurrencyCents(row.estimated_cost_cents)}</span>
+              </div>
+            ))}
+            {usageByUser.length === 0 && <Empty text="No employee plugin usage in this range." />}
+          </div>
+        </section>
+      </div>
+    </>
+  );
 }
 
 function UsagePage({ sessions, users, providerUsage, mode, basePath, range, view }: { sessions: UsageSession[]; users: UserRow[]; providerUsage?: ProviderUsageData | null; mode: DashboardMode; basePath: string; range?: string; view?: string }) {
@@ -3042,6 +3214,25 @@ function formatCurrencyCents(value: string | number | undefined | null) {
   const cents = numeric(value);
   if (!cents) return "$0";
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: cents < 1000 ? 2 : 0 }).format(cents / 100);
+}
+
+function aggregateSecurityPlugins(rows: SecurityData["byPlugin"]) {
+  const grouped = new Map<string, { pluginId: string; count: number; high: number; kinds: string[] }>();
+  for (const row of rows) {
+    const pluginId = row.plugin_id;
+    const current = grouped.get(pluginId) ?? { pluginId, count: 0, high: 0, kinds: [] };
+    current.count += numeric(row.count);
+    if (row.severity === "high" || row.severity === "critical") current.high += numeric(row.count);
+    if (!current.kinds.includes(row.kind)) current.kinds.push(row.kind);
+    grouped.set(pluginId, current);
+  }
+  return [...grouped.values()].sort((left, right) => right.high - left.high || right.count - left.count);
+}
+
+function pluginName(pluginId: string | undefined | null) {
+  const value = String(pluginId ?? "").trim();
+  if (!value) return "openleash";
+  return value.replace(/^openleash\./, "").replace("prompt-compression", "token-saver").replace("dlp", "data-leakage-prevention");
 }
 
 function providerName(value: string | undefined | null) {
