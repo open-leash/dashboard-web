@@ -676,6 +676,113 @@ function demoOverview(): Overview {
   };
 }
 
+function demoSecurityData(): SecurityData {
+  const now = Date.now();
+  const iso = (minutesAgo: number) => new Date(now - minutesAgo * 60_000).toISOString();
+  return {
+    range: { days: 30, since: iso(60 * 24 * 30) },
+    summary: {
+      total_signals: 24,
+      findings: 9,
+      high_severity: 3,
+      contained: 7,
+      affected_users: 4
+    },
+    signals: [
+      {
+        id: "demo-security-1",
+        plugin_id: "data-leakage-prevention",
+        kind: "secret_exposure",
+        severity: "critical",
+        title: "Secret-like token blocked before model call",
+        summary: "DLP masked a credential-like value in a Codex prompt from customer-portal.",
+        decision: "deny",
+        status: "contained",
+        created_at: iso(18),
+        user_email: "priya.rao@northstar.dev",
+        user_name: "Priya Rao",
+        hostname: "priya-studio",
+        agent_kind: "codex",
+        agent_name: "Codex",
+        event_name: "UserPromptSubmit",
+        project_path: "/workspaces/customer-portal"
+      },
+      {
+        id: "demo-security-2",
+        plugin_id: "sec-evaluator",
+        kind: "approval_required",
+        severity: "high",
+        title: "Production deploy held for approval",
+        summary: "Security evaluator required approval for a production namespace deployment.",
+        decision: "ask",
+        status: "review",
+        created_at: iso(42),
+        user_email: "avery.chen@northstar.dev",
+        user_name: "Avery Chen",
+        hostname: "avery-mbp-14",
+        agent_kind: "claude-code",
+        agent_name: "Claude Code",
+        event_name: "PreToolUse",
+        tool_name: "bash",
+        project_path: "/workspaces/payments-api"
+      },
+      {
+        id: "demo-security-3",
+        plugin_id: "mcp-scanner",
+        kind: "mcp_inventory",
+        severity: "medium",
+        title: "New MCP server discovered",
+        summary: "MCP scanner found a filesystem server with write tools enabled.",
+        decision: "allow",
+        status: "observed",
+        created_at: iso(76),
+        user_email: "maya.patel@northstar.dev",
+        user_name: "Maya Patel",
+        hostname: "maya-framework-16",
+        agent_kind: "gemini",
+        agent_name: "Gemini",
+        event_name: "McpServerSeen",
+        project_path: "/workspaces/web-console"
+      }
+    ],
+    byPlugin: [
+      { plugin_id: "data-leakage-prevention", kind: "secret_exposure", severity: "critical", count: 7 },
+      { plugin_id: "sec-evaluator", kind: "approval_required", severity: "high", count: 11 },
+      { plugin_id: "mcp-scanner", kind: "mcp_inventory", severity: "medium", count: 6 }
+    ],
+    byUser: [
+      { user_id: "demo-user-0", email: "avery.chen@northstar.dev", name: "Avery Chen", signal_count: 8, high_count: 2, last_signal_at: iso(42) },
+      { user_id: "demo-user-2", email: "priya.rao@northstar.dev", name: "Priya Rao", signal_count: 7, high_count: 1, last_signal_at: iso(18) }
+    ],
+    usage: {
+      byPlugin: [
+        { plugin_id: "token-saver", kind: "compression", provider: "openai", model: "gpt-5.2", records: 41, input_tokens: 184000, output_tokens: 26000, saved_tokens: 72000, estimated_cost_cents: 1820 },
+        { plugin_id: "data-leakage-prevention", kind: "masking", provider: "anthropic", model: "claude-sonnet", records: 19, input_tokens: 94000, output_tokens: 12000, saved_tokens: 0, estimated_cost_cents: 960 },
+        { plugin_id: "sec-evaluator", kind: "policy_eval", provider: "openai", model: "gpt-5-mini", records: 68, input_tokens: 128000, output_tokens: 18000, saved_tokens: 0, estimated_cost_cents: 730 }
+      ],
+      byUser: [
+        { user_id: "demo-user-0", email: "avery.chen@northstar.dev", name: "Avery Chen", records: 32, input_tokens: 76000, output_tokens: 9000, saved_tokens: 21000, estimated_cost_cents: 620, last_usage_at: iso(42) },
+        { user_id: "demo-user-1", email: "maya.patel@northstar.dev", name: "Maya Patel", records: 28, input_tokens: 69000, output_tokens: 7800, saved_tokens: 18000, estimated_cost_cents: 540, last_usage_at: iso(76) },
+        { user_id: "demo-user-2", email: "priya.rao@northstar.dev", name: "Priya Rao", records: 24, input_tokens: 61000, output_tokens: 7200, saved_tokens: 33000, estimated_cost_cents: 480, last_usage_at: iso(18) }
+      ]
+    },
+    correlations: [
+      { correlation_key: "payments-api-risk", signal_count: 5, plugin_count: 3, user_count: 2, last_signal_at: iso(18), plugin_ids: ["data-leakage-prevention", "sec-evaluator", "token-saver"] },
+      { correlation_key: "mcp-write-tools", signal_count: 3, plugin_count: 2, user_count: 1, last_signal_at: iso(76), plugin_ids: ["mcp-scanner", "sec-evaluator"] }
+    ]
+  };
+}
+
+function hasSecurityData(data?: SecurityData | null) {
+  return Boolean(
+    data?.signals?.length ||
+    data?.byPlugin?.length ||
+    data?.usage?.byPlugin?.length ||
+    data?.usage?.byUser?.length ||
+    data?.correlations?.length
+  );
+}
+
 function projectName(memberIndex: number, agentIndex: number) {
   const names = ["payments-api", "customer-portal", "web-console", "identity-sync", "billing-worker", "infra-policies"];
   return names[(memberIndex + agentIndex) % names.length];
@@ -1466,6 +1573,7 @@ function sentenceTitle(value: string) {
 
 function SecurityPage({ data, mode, basePath, range }: { data?: SecurityData | null; mode: DashboardMode; basePath: string; range?: string }) {
   const personal = mode === "personal";
+  const pageData = !personal && !hasSecurityData(data) ? demoSecurityData() : data;
   const selectedRange = range === "7d" ? "7d" : range === "all" ? "all" : "30d";
   const ranges = [{ label: "7d", value: "7d" }, { label: "30d", value: "30d" }, { label: "All", value: "all" }];
   const securityHref = (nextRange: string) => {
@@ -1473,12 +1581,12 @@ function SecurityPage({ data, mode, basePath, range }: { data?: SecurityData | n
     if (nextRange !== "30d") params.set("range", nextRange);
     return `${dashboardHref(basePath, "/security")}${params.size ? `?${params.toString()}` : ""}` as any;
   };
-  const summary = data?.summary ?? {};
-  const signals = data?.signals ?? [];
-  const correlations = data?.correlations ?? [];
-  const byPlugin = aggregateSecurityPlugins(data?.byPlugin ?? []);
-  const usageByPlugin = data?.usage?.byPlugin ?? [];
-  const usageByUser = data?.usage?.byUser ?? [];
+  const summary = pageData?.summary ?? {};
+  const signals = pageData?.signals ?? [];
+  const correlations = pageData?.correlations ?? [];
+  const byPlugin = aggregateSecurityPlugins(pageData?.byPlugin ?? []);
+  const usageByPlugin = pageData?.usage?.byPlugin ?? [];
+  const usageByUser = pageData?.usage?.byUser ?? [];
   return (
     <>
       <Topbar />
