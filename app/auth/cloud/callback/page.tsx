@@ -8,7 +8,7 @@ export default async function CloudCallbackPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const apiUrl = process.env.OPENLEASH_API_URL ?? "http://localhost:9319";
+  const apiUrl = process.env.OPENLEASH_CLOUD_CLIENT_API_URL ?? process.env.OPENLEASH_CLIENT_API_URL ?? process.env.OPENLEASH_CLOUD_API_URL ?? "http://localhost:9318";
   const params = await searchParams;
   if (first(params.desktop) === "1") return <CloudGoogleCallback apiUrl={apiUrl} />;
   const error = first(params.error_description) || first(params.error);

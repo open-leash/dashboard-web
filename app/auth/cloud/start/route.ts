@@ -44,7 +44,7 @@ function redirectToCloudError(request: NextRequest, message: string) {
 }
 
 function cloudApiUrl() {
-  const configured = process.env.OPENLEASH_CLOUD_API_URL ?? process.env.OPENLEASH_API_URL ?? "http://localhost:9319";
+  const configured = process.env.OPENLEASH_CLOUD_CLIENT_API_URL ?? process.env.OPENLEASH_CLIENT_API_URL ?? process.env.OPENLEASH_CLOUD_API_URL ?? "http://localhost:9318";
   try {
     const url = new URL(configured);
     if (url.hostname === "dashboard-api.openleash.com") return "https://api.openleash.com";

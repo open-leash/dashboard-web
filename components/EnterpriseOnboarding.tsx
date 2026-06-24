@@ -37,6 +37,7 @@ export type OnboardingData = {
       identityLoaderUrl?: string;
       updateMode?: string;
       updateFeedUrl?: string;
+      cloudPackage?: "work-managed" | "work-byok";
     } | null;
   };
   idp?: {
@@ -115,6 +116,9 @@ export function EnterpriseOnboarding({
     name: initialCompanyName,
     slug: initialCompanySlug
   });
+  const [cloudPackage, setCloudPackage] = useState<"work-managed" | "work-byok">(
+    initialData?.organization.infrastructure_config?.cloudPackage === "work-byok" ? "work-byok" : "work-managed"
+  );
   const [provider, setProvider] = useState("azure");
   const [infrastructure, setInfrastructure] = useState({
     databaseUrl: initialData?.organization.infrastructure_config?.databaseUrl ?? "",
@@ -187,7 +191,7 @@ export function EnterpriseOnboarding({
     await apiFetch(onboardingUrl("/company"), "adminOnboardingWrite", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ organizationSlug: onboardingSlug, name: company.name, slug: company.slug })
+      body: JSON.stringify({ organizationSlug: onboardingSlug, name: company.name, slug: company.slug, packageId: cloudPackage })
     });
     await reload();
     setStep(isPrivate ? 3 : 2);
@@ -429,6 +433,21 @@ export function EnterpriseOnboarding({
               </span>
             </label>
           </div>
+          {!isPrivate && (
+            <div className="providerGrid packageChoiceGrid">
+              <button type="button" className={cloudPackage === "work-managed" ? "providerCard active" : "providerCard"} onClick={() => setCloudPackage("work-managed")}>
+                <span className="providerIcon"><KeyRound size={20} /></span>
+                <strong>Fully Managed</strong>
+                <span>OpenLeash-managed evaluation for teams. Default package.</span>
+                <em>Default</em>
+              </button>
+              <button type="button" className={cloudPackage === "work-byok" ? "providerCard active" : "providerCard"} onClick={() => setCloudPackage("work-byok")}>
+                <span className="providerIcon"><KeyRound size={20} /></span>
+                <strong>Managed + Your LLM</strong>
+                <span>Store an encrypted organization key and evaluate through your provider.</span>
+              </button>
+            </div>
+          )}
           {!isPrivate && (
             <div className="tenantPreview">
               <strong>Company login</strong>
