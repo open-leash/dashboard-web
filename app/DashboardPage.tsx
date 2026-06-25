@@ -104,10 +104,20 @@ async function getSecurity(searchParams?: Record<string, string | undefined>, te
   if (searchParams?.range === "7d") query.set("days", "7");
   if (searchParams?.range === "30d") query.set("days", "30");
   if (searchParams?.range === "all") query.set("days", "180");
+  const outcomeQuery = new URLSearchParams(query);
+  outcomeQuery.set("domain", "security");
   try {
-    const response = await apiFetch(`${api}/admin/security?${query.toString()}`, "adminSecurity", requestOptions(authToken));
+    const [response, outcomesResponse] = await Promise.all([
+      apiFetch(`${api}/admin/security?${query.toString()}`, "adminSecurity", requestOptions(authToken)),
+      apiFetch(`${api}/admin/outcomes?${outcomeQuery.toString()}`, "adminOutcomes", requestOptions(authToken))
+    ]);
     if (!response.ok) return null;
-    return response.json();
+    const data = await response.json();
+    if (outcomesResponse.ok) {
+      const outcomes = await outcomesResponse.json().catch(() => ({}));
+      data.outcomes = Array.isArray(outcomes.outcomes) ? outcomes.outcomes : [];
+    }
+    return data;
   } catch {
     return null;
   }

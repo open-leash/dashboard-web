@@ -318,6 +318,24 @@ export type SecurityData = {
     byPlugin: Array<{ plugin_id: string; kind: string; provider?: string | null; model?: string | null; records: string | number; input_tokens?: string | number; output_tokens?: string | number; saved_tokens?: string | number; estimated_cost_cents?: string | number }>;
     byUser: Array<{ user_id?: string | null; email?: string | null; name?: string | null; records: string | number; input_tokens?: string | number; output_tokens?: string | number; saved_tokens?: string | number; estimated_cost_cents?: string | number; last_usage_at?: string | null }>;
   };
+  outcomes?: Array<{
+    id: string;
+    domain: string;
+    title: string;
+    summary?: string | null;
+    severity: string;
+    status: string;
+    decision?: string | null;
+    occurredAt: string;
+    createdAt: string;
+    source?: { pluginId?: string; label?: string; kind?: string };
+    subject?: { type?: string; name?: string; id?: string };
+    actor?: { userId?: string | null; name?: string | null; email?: string | null };
+    agent?: { kind?: string | null; name?: string | null; hostname?: string | null };
+    context?: { conversationEventId?: string | null; evaluationId?: string | null; eventName?: string | null; toolName?: string | null; projectPath?: string | null; correlationKeys?: string[] };
+    evidence?: Array<{ label: string; value?: string; kind?: string; sensitive?: boolean }>;
+    details?: Record<string, unknown>;
+  }>;
   correlations: Array<{ correlation_key: string; signal_count: string | number; plugin_count: string | number; user_count: string | number; last_signal_at?: string | null; plugin_ids?: string[] }>;
 };
 
@@ -1583,6 +1601,7 @@ function SecurityPage({ data, mode, basePath, range }: { data?: SecurityData | n
   };
   const summary = pageData?.summary ?? {};
   const signals = pageData?.signals ?? [];
+  const outcomes = pageData?.outcomes ?? [];
   const correlations = pageData?.correlations ?? [];
   const byPlugin = aggregateSecurityPlugins(pageData?.byPlugin ?? []);
   const usageByPlugin = pageData?.usage?.byPlugin ?? [];
@@ -1608,22 +1627,30 @@ function SecurityPage({ data, mode, basePath, range }: { data?: SecurityData | n
       </div>
       <div className="usageGrid single">
         <section className="usagePanel">
-          <div className="card-title"><h3>Latest incidents and findings</h3><div className="right"><span className="sync-pill">{formatCount(summary.total_signals)} signals</span></div></div>
+          <div className="card-title"><h3>Latest security outcomes</h3><div className="right"><span className="sync-pill">{formatCount(outcomes.length || summary.total_signals)} records</span></div></div>
           <div className="usageSessionList">
-            {signals.slice(0, 40).map((signal) => (
-              <article className="usageSession" key={signal.id}>
+            {(outcomes.length ? outcomes : signals.map(signalToOutcomeView)).slice(0, 40).map((outcome) => (
+              <article className="usageSession outcomeCard" key={outcome.id}>
                 <div>
-                  <strong>{signal.title}</strong>
-                  <p>{signal.summary || signal.target?.name || signal.kind} · {signal.user_name || signal.user_email || "Unknown user"} · {signal.agent_name || signal.agent_kind || "agent"} · {pluginName(signal.plugin_id)}</p>
+                  <strong>{outcome.title}</strong>
+                  <p>{outcome.summary || outcome.subject?.name || sentenceTitle(outcome.domain)} · {outcome.actor?.name || outcome.actor?.email || "Unknown user"} · {outcome.agent?.name || outcome.agent?.kind || "agent"}</p>
+                  {outcome.evidence?.length ? (
+                    <div className="outcomeEvidence">
+                      {outcome.evidence.slice(0, 3).map((item, index) => (
+                        <span key={`${outcome.id}-evidence-${index}`} title={item.value}>{item.label}{item.value ? `: ${truncate(item.value, 72)}` : ""}</span>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
                 <div className="usageSessionStats">
-                  <span>{signal.severity}</span>
-                  <span>{signal.decision || signal.status || "observed"}</span>
-                  <span>{relativeTime(signal.created_at)}</span>
+                  <span>{outcome.severity}</span>
+                  <span>{outcome.decision || outcome.status || "observed"}</span>
+                  <span>{relativeTime(outcome.createdAt)}</span>
+                  <small>{outcome.source?.label ?? "OpenLeash"}</small>
                 </div>
               </article>
             ))}
-            {signals.length === 0 && <Empty text="No plugin security signals in this range." />}
+            {outcomes.length === 0 && signals.length === 0 && <Empty text="No security outcomes in this range." />}
           </div>
         </section>
         <section className="usagePanel">
@@ -3335,6 +3362,43 @@ function aggregateSecurityPlugins(rows: SecurityData["byPlugin"]) {
     grouped.set(pluginId, current);
   }
   return [...grouped.values()].sort((left, right) => right.high - left.high || right.count - left.count);
+}
+
+function signalToOutcomeView(signal: SecurityData["signals"][number]): NonNullable<SecurityData["outcomes"]>[number] {
+  return {
+    id: signal.id,
+    domain: signal.kind === "secret.detected" ? "data_protection" : signal.kind === "mcp.discovery" || signal.kind === "tool.risk" ? "tool_risk" : "security",
+    title: signal.title,
+    summary: signal.summary,
+    severity: signal.severity,
+    status: signal.status || signal.decision || "observed",
+    decision: signal.decision,
+    occurredAt: signal.occurred_at || signal.created_at,
+    createdAt: signal.created_at,
+    source: { pluginId: signal.plugin_id, label: outcomeSourceLabel(signal.plugin_id), kind: signal.kind },
+    subject: signal.target,
+    actor: { userId: signal.user_id, name: signal.user_name, email: signal.user_email },
+    agent: { kind: signal.agent_kind, name: signal.agent_name, hostname: signal.hostname },
+    context: {
+      evaluationId: signal.evaluation_id,
+      eventName: signal.event_name,
+      toolName: signal.tool_name,
+      projectPath: signal.project_path,
+      correlationKeys: signal.correlation_keys
+    },
+    evidence: [],
+    details: signal.details
+  };
+}
+
+function outcomeSourceLabel(pluginId: string | undefined | null) {
+  const value = String(pluginId ?? "").trim();
+  if (value === "openleash.security-evaluator") return "Security Evaluation";
+  if (value === "openleash.dlp") return "Data Protection";
+  if (value === "openleash.mcp-scanner") return "MCP and Tool Risk";
+  if (value === "openleash.skill-scanner") return "Skill Review";
+  if (value === "openleash.prompt-compression") return "Token Savings";
+  return pluginName(value);
 }
 
 function pluginName(pluginId: string | undefined | null) {

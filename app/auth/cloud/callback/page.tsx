@@ -1,5 +1,3 @@
-import { apiVersionHeaders } from "@openleash/shared";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { CloudGoogleCallback } from "../../../../components/CloudGoogleCallback";
 
@@ -16,37 +14,20 @@ export default async function CloudCallbackPage({
   const exchangeRedirectUri = first(params.exchangeRedirectUri);
   if (error) return <CloudCallbackError message={error} />;
   if (!code || !exchangeRedirectUri) return <CloudCallbackError message="Google sign-in did not return a usable authorization code." />;
-  const response = await fetch(`${apiUrl}/v1/mobile/auth/exchange`, {
-    method: "POST",
-    headers: { "content-type": "application/json", ...apiVersionHeaders("mobileAuthExchange") },
-    cache: "no-store",
-    body: JSON.stringify({
-      redirectUri: exchangeRedirectUri,
-      authorizationCode: code,
-      providerType: first(params.provider) === "microsoft" ? "azure_ad" : "google",
-      audience: "organization",
-      organizationSlug: first(params.organizationSlug) || undefined
-    })
-  }).catch((err) => err instanceof Error ? err : new Error("OpenLeash could not finish sign-in."));
-  if (response instanceof Error) return <CloudCallbackError message={response.message} />;
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) return <CloudCallbackError message={payload.message || payload.error || "OpenLeash could not finish sign-in."} />;
-  const token = payload.token || payload.sessionToken || payload.session?.token || payload.tokens?.accessToken;
-  if (!token) return <CloudCallbackError message="OpenLeash did not return a dashboard session token." />;
-  const jar = await cookies();
-  jar.set("openleash_dashboard_token", token, { path: "/", sameSite: "lax", maxAge: 60 * 60 * 24 * 14 });
-  const slug = payload.organization?.slug || first(params.organizationSlug) || "openleash";
-  jar.set("openleash_onboarding_org", slug, { path: "/", sameSite: "lax", maxAge: 60 * 60 * 24 });
-  redirect((safeLocalPath(first(params.next)) || `/${encodeURIComponent(slug)}`) as any);
+  redirect(`/auth/cloud/session?${toSearchString(params)}` as any);
 }
 
 function first(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function safeLocalPath(value?: string) {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) return "";
-  return value;
+function toSearchString(params: Record<string, string | string[] | undefined>) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    const firstValue = first(value);
+    if (firstValue) search.set(key, firstValue);
+  }
+  return search.toString();
 }
 
 function CloudCallbackError({ message }: { message: string }) {
