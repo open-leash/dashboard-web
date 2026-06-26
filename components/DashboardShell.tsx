@@ -38,6 +38,7 @@ import { IdentityManager, type OnboardingData } from "./EnterpriseOnboarding";
 import { OrganizationSetupPanel } from "./OrganizationSetupPanel";
 import { LiveDate } from "./LiveDate";
 import { DashboardGreeting, DashboardSignOutButton, DashboardSignOutIconButton, DashboardUserChip } from "./DashboardAuth";
+import type { OpenLeashClientViewModel } from "@openleash/shared";
 import { DashboardSettingsPane, SettingsTree, TokensSettingsPanel } from "./DashboardSettings";
 import { AgentInventory, type AgentInventoryCard } from "./AgentInventory";
 import { UserRoster, type UserRosterItem } from "./UserRoster";
@@ -334,6 +335,7 @@ export type SecurityData = {
     evidence?: Array<{ label: string; value?: string; kind?: string; sensitive?: boolean }>;
     details?: Record<string, unknown>;
   }>;
+  viewModel?: OpenLeashClientViewModel;
   correlations: Array<{ correlation_key: string; signal_count: string | number; plugin_count: string | number; user_count: string | number; last_signal_at?: string | null; plugin_ids?: string[] }>;
 };
 

@@ -116,6 +116,7 @@ async function getSecurity(searchParams?: Record<string, string | undefined>, te
     if (outcomesResponse.ok) {
       const outcomes = await outcomesResponse.json().catch(() => ({}));
       data.outcomes = Array.isArray(outcomes.outcomes) ? outcomes.outcomes : [];
+      data.viewModel = outcomes.viewModel;
     }
     return data;
   } catch {
