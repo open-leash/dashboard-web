@@ -1,5 +1,5 @@
-import { DashboardPage } from "../DashboardPage";
+import { redirect } from "next/navigation";
 
 export default function CompressionPage() {
-  return <DashboardPage initialTab="compression" />;
+  redirect("/settings?item=plugins");
 }

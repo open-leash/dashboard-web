@@ -22,7 +22,6 @@ import {
   KeyRound,
   Laptop,
   Lock,
-  Minimize2,
   Package,
   Search,
   Settings,
@@ -42,7 +41,6 @@ import { DashboardGreeting, DashboardSignOutButton, DashboardSignOutIconButton, 
 import { DashboardSettingsPane, SettingsTree, TokensSettingsPanel } from "./DashboardSettings";
 import { AgentInventory, type AgentInventoryCard } from "./AgentInventory";
 import { UserRoster, type UserRosterItem } from "./UserRoster";
-import { PromptTransformSettings } from "./PromptTransformSettings";
 
 export type Overview = {
   metrics: {
@@ -197,7 +195,7 @@ type ConversationTurnView = {
   at?: string;
 };
 
-export type CoreDashboardTab = "overview" | "security" | "usage" | "setup" | "settings" | "triggers" | "users" | "identity" | "agents" | "external-agents" | "mcps" | "skills" | "policies" | "compression" | "dlp" | "tokens" | "deployment";
+export type CoreDashboardTab = "overview" | "security" | "usage" | "setup" | "settings" | "triggers" | "users" | "identity" | "agents" | "external-agents" | "mcps" | "skills" | "policies" | "tokens" | "deployment";
 export type DashboardTab = CoreDashboardTab | (string & {});
 export type DashboardExtensionTab = {
   id: string;
@@ -907,8 +905,6 @@ export function DashboardShell({
         {tab === "mcps" && <McpServersPage apiUrl={apiUrl} data={mcpServers} mode={dashboardMode} />}
         {tab === "skills" && <SkillsPage data={skills} mode={dashboardMode} basePath={basePath} filters={skillsSearchParams ?? {}} />}
         {tab === "policies" && <PoliciesPage apiUrl={apiUrl} policies={policies} mode={dashboardMode} tenantSlug={tenantSlug} />}
-        {tab === "compression" && <CompressionPage apiUrl={apiUrl} tenantSlug={tenantSlug} mode={dashboardMode} />}
-        {tab === "dlp" && <DlpPage apiUrl={apiUrl} tenantSlug={tenantSlug} mode={dashboardMode} />}
         {tab === "tokens" && <TokensPage apiUrl={apiUrl} mode={dashboardMode} />}
         {tab === "deployment" && <DeploymentPage apiUrl={apiUrl} mode={dashboardMode} />}
         {activeExtension?.render(extensionContext)}
@@ -978,8 +974,6 @@ function Sidebar({
         <NavButton active={tab === "mcps"} href={dashboardHref(basePath, "/mcps")} icon={<Database />} label="MCPs" />
         <NavButton active={tab === "policies"} href={dashboardHref(basePath, "/policies")} icon={<ShieldCheck />} label={personal ? "Guardrails" : "Policies"} />
         <NavButton active={tab === "logs"} href={dashboardHref(basePath, "/logs")} icon={<FileClock />} label="Logs" />
-        <NavButton active={tab === "compression"} href={dashboardHref(basePath, "/compression")} icon={<Minimize2 />} label="Compression" />
-        <NavButton active={tab === "dlp"} href={dashboardHref(basePath, "/dlp")} icon={<ShieldAlert />} label="DLP" />
         {personal && <NavButton active={tab === "tokens"} href={dashboardHref(basePath, "/tokens")} icon={<KeyRound />} label="Connect" />}
         {extensionTabs
           .filter((item) => !personal || item.showInPersonal)
@@ -1009,7 +1003,7 @@ function Sidebar({
   );
 }
 
-type DashboardHref = "/" | "/security" | "/usage" | "/setup" | "/settings" | "/events" | "/triggers" | "/logs" | "/users" | "/identity" | "/agents" | "/external-agents" | "/mcps" | "/skills" | "/policies" | "/compression" | "/dlp" | "/tokens" | "/deployment";
+type DashboardHref = "/" | "/security" | "/usage" | "/setup" | "/settings" | "/events" | "/triggers" | "/logs" | "/users" | "/identity" | "/agents" | "/external-agents" | "/mcps" | "/skills" | "/policies" | "/tokens" | "/deployment";
 
 function dashboardHref(basePath: string, href: DashboardHref | string) {
   if (!basePath) return href;
@@ -2398,40 +2392,6 @@ function PoliciesPage({ apiUrl, policies, mode, tenantSlug }: { apiUrl: string; 
       </div>
       <div className="divider" />
       <PolicyManager apiUrl={apiUrl} policies={policies} organizationSlug={tenantSlug} />
-    </>
-  );
-}
-
-function CompressionPage({ apiUrl, tenantSlug, mode }: { apiUrl: string; tenantSlug?: string; mode: DashboardMode }) {
-  const personal = mode === "personal";
-  return (
-    <>
-      <Topbar />
-      <div className="page-head">
-        <div>
-          <h1>Compression</h1>
-          <p className="sub">{personal ? "Reduce local prompt size before a provider sees it." : "Reduce prompt size before managed clients send prompts to provider models."}</p>
-        </div>
-      </div>
-      <div className="divider" />
-      <PromptTransformSettings apiUrl={apiUrl} tenantSlug={tenantSlug} mode="compression" />
-    </>
-  );
-}
-
-function DlpPage({ apiUrl, tenantSlug, mode }: { apiUrl: string; tenantSlug?: string; mode: DashboardMode }) {
-  const personal = mode === "personal";
-  return (
-    <>
-      <Topbar />
-      <div className="page-head">
-        <div>
-          <h1>DLP</h1>
-          <p className="sub">{personal ? "Mask or block sensitive prompt data on this Mac." : "Mask or block sensitive data before prompts leave managed clients."}</p>
-        </div>
-      </div>
-      <div className="divider" />
-      <PromptTransformSettings apiUrl={apiUrl} tenantSlug={tenantSlug} mode="dlp" />
     </>
   );
 }

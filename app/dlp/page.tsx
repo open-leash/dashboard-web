@@ -1,5 +1,5 @@
-import { DashboardPage } from "../DashboardPage";
+import { redirect } from "next/navigation";
 
 export default function DlpPage() {
-  return <DashboardPage initialTab="dlp" />;
+  redirect("/settings?item=plugins");
 }

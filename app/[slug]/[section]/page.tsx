@@ -4,8 +4,6 @@ import type { DashboardTab } from "../../../components/DashboardShell";
 
 const sectionTabs: Record<string, DashboardTab> = {
   agents: "agents",
-  compression: "compression",
-  dlp: "dlp",
   deployment: "deployment",
   events: "triggers",
   "external-agents": "external-agents",
@@ -41,6 +39,9 @@ export default async function TenantSection({
       if (value) params.set(key, value);
     }
     redirect(`/${encodeURIComponent(slug)}/events${params.size ? `?${params.toString()}` : ""}`);
+  }
+  if (section === "compression" || section === "dlp") {
+    redirect(`/${encodeURIComponent(slug)}/settings?item=plugins`);
   }
   if (slug === "skills") {
     return <DashboardPage initialTab="skills" skillsSearchParams={{ ...normalized, skillId: section }} />;
