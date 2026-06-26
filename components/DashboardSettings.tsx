@@ -167,6 +167,7 @@ function PluginSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: string; org
       mandatory: Boolean(plugin.organizationPolicy?.mandatory),
       defaultEnabled: Boolean(plugin.organizationPolicy?.defaultEnabled),
       userInstallAllowed: plugin.organizationPolicy?.userInstallAllowed !== false,
+      configLocked: Boolean(plugin.organizationPolicy?.configLocked),
       ...patch
     };
     if (nextPolicy.mandatory) nextPolicy.defaultEnabled = true;
@@ -288,6 +289,16 @@ function PluginSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: string; org
                   >
                     <option value="allowed">Users can add/remove</option>
                     <option value="blocked">Admins only</option>
+                  </select>
+                </label>
+                <label>Plugin settings
+                  <select
+                    value={plugin.organizationPolicy?.configLocked ? "locked" : "custom"}
+                    onChange={(event) => void savePluginPolicy(plugin, { configLocked: event.target.value === "locked" })}
+                    disabled={savingId === `${plugin.id}:policy`}
+                  >
+                    <option value="custom">Users can customize</option>
+                    <option value="locked">Use org settings</option>
                   </select>
                 </label>
                 <label>Order priority
