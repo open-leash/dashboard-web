@@ -468,6 +468,7 @@ const agentPalette = [
 const supportedAgentProducts = [
   { key: "claude-code", displayName: "Claude Code", kind: "claude-code" },
   { key: "openai-codex", displayName: "OpenAI Codex", kind: "codex" },
+  { key: "github-copilot", displayName: "GitHub Copilot", kind: "github-copilot" },
   { key: "cline", displayName: "Cline", kind: "cline" },
   { key: "opencode", displayName: "OpenCode", kind: "opencode" },
   { key: "cursor", displayName: "Cursor", kind: "cursor" },
@@ -3214,6 +3215,7 @@ function agentIconFor(name: string) {
   if (text.includes("cursor")) return { src: "/agents/cursor.png" };
   if (text.includes("codex")) return { src: "/agents/codex.png" };
   if (text.includes("chatgpt") || text.includes("chat gpt")) return { src: "/agents/chatgpt.png" };
+  if (text.includes("github copilot")) return { src: `${base}/githubcopilot.svg` };
   if (text.includes("salesforce") || text.includes("agentforce")) return { src: `${base}/salesforce.svg` };
   if (text.includes("azure") || text.includes("foundry")) return { src: `${base}/microsoftazure.svg` };
   if (text.includes("copilot") || text.includes("agent 365")) return { src: `${base}/microsoftcopilot.svg` };
@@ -3543,6 +3545,7 @@ function agentProductKey(agent: Overview["agents"][number]) {
   if (text.includes("cline")) return "cline";
   if (text.includes("opencode") || text.includes("open code")) return "opencode";
   if (text.includes("cursor")) return "cursor";
+  if (text.includes("github copilot")) return "github-copilot";
   if (text.includes("antigravity")) return "antigravity";
   if (text.includes("gemini")) return "gemini";
   if (text.includes("windsurf")) return "windsurf";
@@ -3557,6 +3560,7 @@ function agentProductName(agent: Overview["agents"][number]) {
   if (key === "cline") return "Cline";
   if (key === "opencode") return "OpenCode";
   if (key === "cursor") return "Cursor";
+  if (key === "github-copilot") return "GitHub Copilot";
   if (key === "gemini") return "Gemini";
   if (key === "antigravity") return "Antigravity";
   if (key === "windsurf") return "Windsurf";
