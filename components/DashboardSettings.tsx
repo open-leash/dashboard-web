@@ -171,6 +171,8 @@ function PluginSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: string; org
       ...patch
     };
     if (nextPolicy.mandatory) nextPolicy.defaultEnabled = true;
+    if (nextPolicy.mandatory) nextPolicy.userInstallAllowed = false;
+    if (nextPolicy.mandatory) nextPolicy.configLocked = true;
     setPlugins((items) => items.map((item) => item.id === plugin.id ? {
       ...item,
       organizationPolicy: nextPolicy,
@@ -203,7 +205,7 @@ function PluginSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: string; org
       <div className="setupPanelHead">
         <div>
           <h3>Plugins</h3>
-          <p className="setupCopy compact">Preconfigure mandatory plugins, employee plugin access, and organization defaults for deployed desktop clients.</p>
+          <p className="setupCopy compact">CISO controls for org-wide plugins, mandatory rules, employee access, and locked configuration.</p>
         </div>
       </div>
       {message && <p className="setupCopy compact">{message}</p>}
@@ -293,9 +295,9 @@ function PluginSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: string; org
                 </label>
                 <label>Plugin settings
                   <select
-                    value={plugin.organizationPolicy?.configLocked ? "locked" : "custom"}
+                    value={plugin.organizationPolicy?.mandatory || plugin.organizationPolicy?.configLocked ? "locked" : "custom"}
                     onChange={(event) => void savePluginPolicy(plugin, { configLocked: event.target.value === "locked" })}
-                    disabled={savingId === `${plugin.id}:policy`}
+                    disabled={savingId === `${plugin.id}:policy` || plugin.organizationPolicy?.mandatory}
                   >
                     <option value="custom">Users can customize</option>
                     <option value="locked">Use org settings</option>

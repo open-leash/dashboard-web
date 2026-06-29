@@ -42,6 +42,7 @@ import type { OpenLeashClientViewModel } from "@openleash/shared";
 import { DashboardSettingsPane, SettingsTree, TokensSettingsPanel } from "./DashboardSettings";
 import { AgentInventory, type AgentInventoryCard } from "./AgentInventory";
 import { UserRoster, type UserRosterItem } from "./UserRoster";
+import { PersonalDashboard } from "./PersonalDashboard";
 
 export type Overview = {
   metrics: {
@@ -809,6 +810,7 @@ function projectName(memberIndex: number, agentIndex: number) {
 
 export function DashboardShell({
   apiUrl,
+  clientApiUrl,
   data,
   initialTab = "overview",
   triggerData,
@@ -834,6 +836,7 @@ export function DashboardShell({
   extensionTabs = []
 }: {
   apiUrl: string;
+  clientApiUrl: string;
   data: Overview | null;
   initialTab?: DashboardTab;
   triggerData?: { triggers: TriggerItem[] } | null;
@@ -875,8 +878,12 @@ export function DashboardShell({
   const extensionContext = { apiUrl, basePath, tenantSlug, deploymentMode, dashboardMode, onboardingData };
   const activeExtension = extensionTabs.find((item) => item.id === tab);
 
+  if (personal) {
+    return <PersonalDashboard apiUrl={apiUrl} clientApiUrl={clientApiUrl} />;
+  }
+
   return (
-    <div className={personal ? "app personalDashboard" : "app"}>
+    <div className="app">
       <Sidebar tab={tab} agentsCount={visibleAgentCount} usersCount={users.length} basePath={basePath} mode={dashboardMode} extensionTabs={extensionTabs} settingsItem={settingsSearchParams?.item} />
       <main className="main">
         {tab === "overview" && needsIdentityProvider && <IdentityProviderNotice basePath={basePath} />}

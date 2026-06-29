@@ -29,10 +29,12 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function DashboardAuthGate({
   apiUrl,
   organizationSlug,
+  requireAdmin = false,
   children
 }: {
   apiUrl: string;
   organizationSlug: string;
+  requireAdmin?: boolean;
   children: React.ReactNode;
 }) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -42,11 +44,11 @@ export function DashboardAuthGate({
   useEffect(() => {
     let cancelled = false;
     async function checkSession() {
-      const token = localStorage.getItem("openleash_dashboard_token") || readCookie("openleash_dashboard_token");
+      const token = normalizeToken(localStorage.getItem("openleash_dashboard_token") || readCookie("openleash_dashboard_token"));
       if (token) localStorage.setItem("openleash_dashboard_token", token);
       const storedOrg = readStoredOrganization();
       if (!token) {
-        redirectToTenantLogin(storedOrg?.slug ?? organizationSlug);
+        redirectToLogin(requireAdmin, storedOrg?.slug ?? organizationSlug);
         return;
       }
       try {
@@ -55,7 +57,7 @@ export function DashboardAuthGate({
         });
         if (!response.ok) {
           clearDashboardAuth();
-          redirectToTenantLogin(storedOrg?.slug ?? organizationSlug);
+          redirectToLogin(requireAdmin, storedOrg?.slug ?? organizationSlug);
           return;
         }
         const payload = await response.json();
@@ -65,7 +67,7 @@ export function DashboardAuthGate({
           redirectToTenantLogin(organizationSlug);
           return;
         }
-        if (!isDashboardRole(payload.user?.role)) {
+        if (requireAdmin && !isDashboardRole(payload.user?.role)) {
           clearDashboardAuth();
           window.location.href = "/?error=dashboard_admin_required";
           return;
@@ -77,14 +79,14 @@ export function DashboardAuthGate({
         setChecking(false);
       } catch {
         clearDashboardAuth();
-        redirectToTenantLogin(storedOrg?.slug ?? organizationSlug);
+        redirectToLogin(requireAdmin, storedOrg?.slug ?? organizationSlug);
       }
     }
     checkSession();
     return () => {
       cancelled = true;
     };
-  }, [apiUrl, organizationSlug]);
+  }, [apiUrl, organizationSlug, requireAdmin]);
 
   const value = useMemo<AuthContextValue>(() => ({
     user,
@@ -164,6 +166,23 @@ function redirectToTenantLogin(slug: string) {
   window.location.href = `/${encodeURIComponent(slug || "openleash")}/auth/login?redirect=${encodeURIComponent(target)}`;
 }
 
+function redirectToLogin(requireAdmin: boolean, slug: string) {
+  if (requireAdmin) {
+    redirectToTenantLogin(slug);
+    return;
+  }
+  window.location.href = `${mainWebUrl()}/account`;
+}
+
+function mainWebUrl() {
+  const configured = process.env.NEXT_PUBLIC_MAIN_WEB_URL?.replace(/\/+$/, "");
+  if (configured) return configured;
+  if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+    return `${window.location.protocol}//${window.location.hostname}:9305`;
+  }
+  return "https://openleash.com";
+}
+
 function clearDashboardAuth() {
   localStorage.removeItem("openleash_dashboard_token");
   document.cookie = "openleash_dashboard_token=; Path=/; SameSite=Lax; Max-Age=0";
@@ -175,11 +194,22 @@ function clearDashboardAuth() {
 function readCookie(name: string) {
   if (typeof document === "undefined") return "";
   const prefix = `${name}=`;
-  return document.cookie
+  const value = document.cookie
     .split(";")
     .map((item) => item.trim())
     .find((item) => item.startsWith(prefix))
     ?.slice(prefix.length) ?? "";
+  return normalizeToken(value);
+}
+
+function normalizeToken(token: string | null | undefined) {
+  const value = String(token ?? "");
+  if (!value) return "";
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
 
 function readStoredUser(): AuthUser | null {

@@ -180,6 +180,911 @@ a { color: inherit; text-decoration: none; }
   border-top: 1px solid var(--line);
 }
 
+.personalClientApp {
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 22px;
+  padding: 24px;
+  background: #f7f8f6;
+}
+
+.personalClientSidebar {
+  background: transparent;
+  border-radius: 0;
+  padding: 18px 12px;
+}
+
+.personalClientSidebar .brand {
+  padding: 4px 8px 34px;
+}
+
+.personalClientSidebar .brand-name {
+  font-size: 20px;
+}
+
+.personalNavItem {
+  min-height: 54px;
+  border-radius: 14px;
+}
+
+.personalNavItem.active {
+  background: #eeece6;
+  box-shadow: inset 4px 0 0 #11110f;
+}
+
+.personalNavItem.cost,
+.personalNavItem.cost .ic { color: #6550f5; }
+.personalNavItem.security,
+.personalNavItem.security .ic { color: #0b8374; }
+.personalNavItem.observability,
+.personalNavItem.observability .ic { color: #2d6be8; }
+.personalNavItem.utility,
+.personalNavItem.utility .ic { color: #b05d12; }
+
+.personalNavItem.cost { background: #e9e1fb; }
+.personalNavItem.security { background: #ddefe8; }
+.personalNavItem.observability { background: #deebfb; }
+.personalNavItem.utility { background: #f4e8ce; }
+
+.personalNavItem .badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  color: #6550f5;
+  background: #ded7ff;
+  border-radius: 999px;
+  font-size: 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.personalNavGroup {
+  display: grid;
+  gap: 4px;
+}
+
+.personalNavPlugin {
+  min-height: 34px;
+  margin-left: 34px;
+  padding: 7px 12px;
+  border-left: 1px solid #dedbd2;
+  color: #5f5d58;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: left;
+}
+
+.personalNavPlugin.active,
+.personalNavPlugin:hover {
+  color: #11110f;
+}
+
+.personalClientMain {
+  display: grid;
+  align-content: start;
+  gap: 20px;
+  min-width: 0;
+  padding: 8px 0 56px;
+}
+
+.personalTopbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  min-height: 38px;
+}
+
+.personalTopbar > span,
+.personalCloudPill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: #dfeee9;
+  color: #087b6d;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 900;
+}
+
+.personalPanel {
+  width: min(1120px, 100%);
+  padding: 28px;
+  background: #fff;
+  border: 1px solid #e7e1d8;
+  border-radius: 8px;
+  box-shadow: 0 18px 48px rgba(40, 34, 24, 0.08);
+}
+
+.personalActivity {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: center;
+  min-height: 168px;
+}
+
+.personalKicker,
+.personalCategoryTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  padding: 5px 12px;
+  border-radius: 999px;
+  color: #6550f5;
+  background: #f0ebff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+.personalCategoryTag {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.personalCategoryTag.security { color: #0b8374; background: #ddefe8; }
+.personalCategoryTag.observability { color: #2d6be8; background: #deebfb; }
+.personalCategoryTag.utility { color: #b05d12; background: #f4e8ce; }
+
+.personalActivity h1,
+.personalOverviewHead h1 {
+  margin: 18px 0 6px;
+  font-size: clamp(34px, 4vw, 58px);
+  line-height: 0.95;
+  letter-spacing: 0;
+}
+
+.personalActivity p,
+.personalOverviewHead p,
+.personalPluginDetailHead p {
+  margin: 0;
+  color: #6e6b64;
+  font-size: 18px;
+  line-height: 1.45;
+}
+
+.personalSummaryPills {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  max-width: 280px;
+}
+
+.personalSummaryPills span {
+  padding: 8px 14px;
+  border: 1px solid #e7e1d8;
+  border-radius: 999px;
+  color: #6e6b64;
+  background: #fff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 900;
+}
+
+.personalOverviewHead {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 480px);
+  align-items: center;
+  gap: 24px;
+}
+
+.personalOverviewHead h1 {
+  margin-top: 0;
+}
+
+.personalConnectedDevice {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid #e7e1d8;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.personalConnectedDevice > span {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 12px;
+  color: #087b6d;
+  background: #dfeee9;
+}
+
+.personalConnectedDevice strong,
+.personalConnectedDevice small {
+  display: block;
+}
+
+.personalConnectedDevice small {
+  color: #6e6b64;
+  font-weight: 800;
+}
+
+.personalConnectedDevice em {
+  padding: 8px 14px;
+  border-radius: 999px;
+  color: #087b6d;
+  background: #dfeee9;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.personalAgentGrid,
+.personalPluginGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(210px, 1fr));
+  gap: 14px;
+  width: min(840px, 100%);
+}
+
+.personalAgentTile,
+.personalPluginCard {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  min-height: 118px;
+  padding: 18px;
+  background: #f7f7f7;
+  border: 1px solid #e7e1d8;
+  border-radius: 8px;
+  text-align: left;
+}
+
+.personalAgentTile.active,
+.personalAgentTile.unmonitored {
+  background: #eaf6ff;
+}
+
+.personalAgentIcon,
+.personalPluginIcon {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 14px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.personalAgentIcon img {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+}
+
+.personalAgentIcon.muted img {
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+
+.personalAgentText strong,
+.personalPluginCard strong {
+  display: block;
+  color: #050505;
+  font-size: 20px;
+  line-height: 1.05;
+}
+
+.personalAgentText small,
+.personalPluginCard p {
+  display: block;
+  margin-top: 4px;
+  color: #6e6b64;
+  font-weight: 800;
+}
+
+.personalAgentMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.personalAgentMeta i {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #d8d1c6;
+  border-radius: 999px;
+  background: #fff;
+  color: #6e6b64;
+  font-style: normal;
+}
+
+.personalSwitch {
+  position: relative;
+  display: inline-flex;
+  width: 42px;
+  height: 24px;
+}
+
+.personalSwitch input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+.personalSwitch span {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: #ddd8cf;
+}
+
+.personalSwitch span::after {
+  content: "";
+  display: block;
+  width: 18px;
+  height: 18px;
+  margin: 3px;
+  border-radius: 999px;
+  background: #fff;
+  transition: transform 160ms ease;
+}
+
+.personalSwitch input:checked + span {
+  background: #0b8374;
+}
+
+.personalSwitch input:checked + span::after {
+  transform: translateX(18px);
+}
+
+.personalPanelHead,
+.personalPluginDetailHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.personalPanelHead h2,
+.personalPluginDetailHead h2 {
+  margin: 10px 0 0;
+  font-size: 34px;
+  line-height: 1;
+}
+
+.personalPluginCard {
+  grid-template-columns: 48px minmax(0, 1fr);
+  min-height: 124px;
+}
+
+.personalPluginCard.active {
+  outline: 2px solid #6550f5;
+  outline-offset: 2px;
+}
+
+.personalPluginIcon {
+  width: 48px;
+  height: 48px;
+  color: #6550f5;
+  background: #f0ebff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 900;
+}
+
+.personalPluginIcon.security { color: #0b8374; background: #ddefe8; }
+.personalPluginIcon.observability { color: #2d6be8; background: #deebfb; }
+.personalPluginIcon.utility { color: #b05d12; background: #f4e8ce; }
+
+.personalPluginCard em {
+  color: #6e6b64;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.personalMarketplace {
+  display: grid;
+  gap: 22px;
+}
+
+.personalMarketplaceHero {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.personalMarketplaceHero h1 {
+  margin: 12px 0 8px;
+  font-size: clamp(38px, 4vw, 58px);
+  line-height: 0.96;
+}
+
+.personalMarketplaceHero p {
+  max-width: 46ch;
+  margin: 0;
+  color: #6e6b64;
+  font-size: 17px;
+  line-height: 1.45;
+}
+
+.personalMarketplaceSearch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 54px;
+  padding: 0 16px;
+  border: 1.5px solid #ded8ce;
+  border-radius: 12px;
+  background: #fff;
+  color: #8f8a80;
+}
+
+.personalMarketplaceSearch input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #11110f;
+  font: inherit;
+}
+
+.personalMarketplaceControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.personalMarketplaceControls button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 13px;
+  border: 1px solid #ded8ce;
+  border-radius: 999px;
+  background: #fff;
+  color: #4e4b45;
+  font-weight: 850;
+}
+
+.personalMarketplaceControls button.active {
+  border-color: #11110f;
+  background: #11110f;
+  color: #fff;
+}
+
+.personalMarketplaceControls button.cost.active { background: #6550f5; border-color: #6550f5; }
+.personalMarketplaceControls button.security.active { background: #0b8374; border-color: #0b8374; }
+.personalMarketplaceControls button.observability.active { background: #2d6be8; border-color: #2d6be8; }
+.personalMarketplaceControls button.utility.active { background: #b05d12; border-color: #b05d12; }
+
+.personalMarketplaceControls em {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: rgba(101, 80, 245, 0.14);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.personalMarketplaceControls button.active em {
+  color: #11110f;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.personalMarketplaceResults {
+  color: #8f8a80;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.personalMarketplaceGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 18px;
+}
+
+.personalMarketplaceCard {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 230px;
+  padding: 22px;
+  border: 1px solid #e7e1d8;
+  border-radius: 8px;
+  background: #fcfcfa;
+}
+
+.personalMarketplaceCardTop {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.personalMarketplaceCardTop strong {
+  display: block;
+  font-size: 22px;
+  line-height: 1.05;
+}
+
+.personalMarketplaceCardTop small {
+  display: block;
+  margin-top: 5px;
+  color: #8f8a80;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 900;
+}
+
+.personalMarketplaceCard p {
+  flex: 1;
+  margin: 0;
+  color: #5f5b53;
+  font-size: 18px;
+  line-height: 1.36;
+}
+
+.personalMarketplaceCardBottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  color: #8f8a80;
+  font-weight: 800;
+}
+
+.personalMarketplaceCardBottom button,
+.personalInstallActions button {
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 999px;
+  color: #fff;
+  background: #11110f;
+  font-weight: 900;
+}
+
+.personalMarketplaceEmpty {
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+  text-align: center;
+  color: #8f8a80;
+}
+
+.personalMarketplaceEmpty h2 {
+  margin: 14px 0 4px;
+}
+
+.personalModalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(17, 17, 15, 0.28);
+}
+
+.personalInstallDialog {
+  width: min(720px, 100%);
+  max-height: min(760px, calc(100vh - 48px));
+  overflow: auto;
+  padding: 28px;
+  border: 1px solid #e7e1d8;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 30px 80px rgba(17, 17, 15, 0.24);
+}
+
+.personalIconClose {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #ded8ce;
+  border-radius: 999px;
+  color: #6e6b64;
+  background: #fff;
+}
+
+.personalInstallBody {
+  margin-top: 22px;
+}
+
+.personalInstallActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.personalInstallActions button.secondary {
+  color: #11110f;
+  background: #f4f2ed;
+}
+
+.personalPluginDetail button {
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  color: #fff;
+  background: #11110f;
+  font-weight: 900;
+}
+
+.personalPluginDetail button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.personalPluginTabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 18px;
+  padding: 6px;
+  border: 1px solid #e7e1d8;
+  border-radius: 999px;
+  background: #f4f2ed;
+}
+
+.personalPluginDetail .personalPluginTabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  color: #6e6b64;
+  background: transparent;
+  font-weight: 900;
+}
+
+.personalPluginDetail .personalPluginTabs button.active {
+  color: #11110f;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(17, 17, 15, 0.08);
+}
+
+.personalPluginTabs span {
+  display: inline-grid;
+  min-width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 999px;
+  background: #e9e5dc;
+  color: #6e6b64;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+.personalPluginTabPanel {
+  margin-top: 18px;
+}
+
+.personalPluginMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.personalPluginMeta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #f4f2ed;
+  color: #6e6b64;
+  font-weight: 800;
+}
+
+.personalPluginDetailGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.personalPluginSettings,
+.personalPluginInsights {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid #e7e1d8;
+  border-radius: 8px;
+  background: #fbfbfa;
+}
+
+.personalInsightSummary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.personalInsightSummary article {
+  padding: 16px;
+  border: 1px solid #e7e1d8;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.personalInsightSummary strong {
+  display: block;
+  font-size: 30px;
+  line-height: 1;
+}
+
+.personalInsightSummary span {
+  display: block;
+  margin-top: 8px;
+  color: #6e6b64;
+  font-weight: 800;
+}
+
+.personalSectionHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.personalSectionHead strong {
+  display: block;
+  font-size: 20px;
+}
+
+.personalSectionHead p {
+  margin: 4px 0 0;
+  color: #6e6b64;
+  line-height: 1.35;
+}
+
+.personalSectionHead > span {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #f4f2ed;
+  color: #6e6b64;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 900;
+}
+
+.personalSettingsFields {
+  display: grid;
+  gap: 14px;
+}
+
+.personalSettingField,
+.personalSettingToggle {
+  display: grid;
+  gap: 8px;
+}
+
+.personalSettingField strong,
+.personalSettingToggle strong {
+  color: #25231f;
+}
+
+.personalSettingField input,
+.personalSettingField textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid #ded8ce;
+  border-radius: 8px;
+  background: #fff;
+  color: #11110f;
+}
+
+.personalSettingField textarea {
+  resize: vertical;
+  line-height: 1.4;
+}
+
+.personalSettingToggle {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid #ded8ce;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.personalSettingToggle input {
+  width: 22px;
+  height: 22px;
+}
+
+.personalSegmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.personalSegmented label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid #ded8ce;
+  border-radius: 999px;
+  background: #fff;
+  font-weight: 800;
+}
+
+.personalPluginActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.personalPluginActions button {
+  color: #fff;
+  background: #11110f;
+}
+
+.personalOutcomeList {
+  display: grid;
+  gap: 10px;
+}
+
+.personalOutcomeList article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #e7e1d8;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.personalOutcomeList p,
+.personalEmpty,
+.personalSyncMessage {
+  margin: 6px 0 0;
+  color: #6e6b64;
+}
+
+.personalSyncMessage {
+  width: min(1120px, 100%);
+  margin: -8px 0 0;
+  font-weight: 800;
+}
+
+.personalNotificationDock {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid #e7e1d8;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 18px 48px rgba(40, 34, 24, 0.14);
+}
+
+.personalNotificationDock strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .main {
   display: flex;
   flex-direction: column;
