@@ -37,7 +37,7 @@ export type OnboardingData = {
       identityLoaderUrl?: string;
       updateMode?: string;
       updateFeedUrl?: string;
-      cloudPackage?: "work-managed" | "work-byok";
+      accountPackage?: "work-managed" | "work-byok";
     } | null;
   };
   idp?: {
@@ -116,8 +116,8 @@ export function EnterpriseOnboarding({
     name: initialCompanyName,
     slug: initialCompanySlug
   });
-  const [cloudPackage, setCloudPackage] = useState<"work-managed" | "work-byok">(
-    initialData?.organization.infrastructure_config?.cloudPackage === "work-byok" ? "work-byok" : "work-managed"
+  const [accountPackage, setAccountPackage] = useState<"work-managed" | "work-byok">(
+    initialData?.organization.infrastructure_config?.accountPackage === "work-byok" ? "work-byok" : "work-managed"
   );
   const [provider, setProvider] = useState("azure");
   const [infrastructure, setInfrastructure] = useState({
@@ -191,7 +191,7 @@ export function EnterpriseOnboarding({
     await apiFetch(onboardingUrl("/company"), "adminOnboardingWrite", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ organizationSlug: onboardingSlug, name: company.name, slug: company.slug, packageId: cloudPackage })
+      body: JSON.stringify({ organizationSlug: onboardingSlug, name: company.name, slug: company.slug, packageId: accountPackage })
     });
     await reload();
     setStep(isPrivate ? 3 : 2);
@@ -330,7 +330,7 @@ export function EnterpriseOnboarding({
   const identityRequiredForStep = skippedIdentity && !hasIdentityProvider;
   const tenantHost = company.slug ? `${company.slug}.${normalizedTenantDomain}` : `[company].${normalizedTenantDomain}`;
   const companyLoginUrl = `https://${tenantHost}`;
-  const enrollmentCommand = `/bin/bash install-openleash-personal.sh --dmg <signed-dmg-url> --tenant ${tenantHost} --api-url https://api.openleash.com --token <deployment-token> --mode cloud --enroll --install-hooks`;
+  const enrollmentCommand = `/bin/bash install-openleash-personal.sh --dmg <signed-dmg-url> --tenant ${tenantHost} --api-url ${apiUrl} --token <deployment-token> --mode ${isPrivate ? "self-hosted" : "cloud"} --enroll --install-hooks`;
   const companyStep = isPrivate ? 2 : 1;
   const identityStep = isPrivate ? 3 : 2;
   const importStep = isPrivate ? 4 : 3;
@@ -362,7 +362,7 @@ export function EnterpriseOnboarding({
     <div className="setupShell">
       <section className="setupHero">
         <div>
-          <span className="setupEyebrow">{isPrivate ? "Private deployment onboarding" : "Hosted cloud onboarding"}</span>
+          <span className="setupEyebrow">{isPrivate ? "Private deployment onboarding" : "Managed deployment onboarding"}</span>
           <h2>{org?.setup_completed ? "OpenLeash is ready for managed rollout" : "Set up OpenLeash for your organization"}</h2>
           <p>{isPrivate ? "Configure the customer-hosted services, connect identity, import users and groups, then deploy the endpoint agent through your MDM." : "Connect identity, import users and groups, map admin roles, then deploy the same tray and local agent through your MDM."}</p>
         </div>
@@ -435,13 +435,13 @@ export function EnterpriseOnboarding({
           </div>
           {!isPrivate && (
             <div className="providerGrid packageChoiceGrid">
-              <button type="button" className={cloudPackage === "work-managed" ? "providerCard active" : "providerCard"} onClick={() => setCloudPackage("work-managed")}>
+              <button type="button" className={accountPackage === "work-managed" ? "providerCard active" : "providerCard"} onClick={() => setAccountPackage("work-managed")}>
                 <span className="providerIcon"><KeyRound size={20} /></span>
                 <strong>Fully Managed</strong>
                 <span>OpenLeash-managed evaluation for teams. Default package.</span>
                 <em>Default</em>
               </button>
-              <button type="button" className={cloudPackage === "work-byok" ? "providerCard active" : "providerCard"} onClick={() => setCloudPackage("work-byok")}>
+              <button type="button" className={accountPackage === "work-byok" ? "providerCard active" : "providerCard"} onClick={() => setAccountPackage("work-byok")}>
                 <span className="providerIcon"><KeyRound size={20} /></span>
                 <strong>Managed + Your LLM</strong>
                 <span>Store an encrypted organization key and evaluate through your provider.</span>

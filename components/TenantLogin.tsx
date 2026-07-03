@@ -19,12 +19,14 @@ export function TenantLogin({
   apiUrl,
   slug,
   organizationName,
-  providers
+  providers,
+  hostedAuthStartPath
 }: {
   apiUrl: string;
   slug: string;
   organizationName: string;
   providers: SsoProvider[];
+  hostedAuthStartPath?: string;
 }) {
   const searchParams = useSearchParams();
   const [loadingProvider, setLoadingProvider] = useState<string | null>(null);
@@ -59,7 +61,7 @@ export function TenantLogin({
       organizationSlug: slug,
       next: redirect
     });
-    return `/auth/cloud/start?${params.toString()}`;
+    return `${hostedAuthStartPath}?${params.toString()}`;
   }
 
   return (
@@ -75,7 +77,7 @@ export function TenantLogin({
         </div>
         {error && <div className="setupNotice danger">{error}</div>}
         <div className="tenantLoginProviders">
-          {providers.length === 0 ? (
+          {providers.length === 0 && hostedAuthStartPath ? (
             <>
               <a className="tenantLoginProviderButton" href={cloudOwnerHref("google")}>
                 <ProviderMark providerType="google_workspace" />
@@ -87,6 +89,8 @@ export function TenantLogin({
               </a>
               <div className="tenantLoginEmpty">Identity provider setup can be finished later from Settings.</div>
             </>
+          ) : providers.length === 0 ? (
+            <div className="tenantLoginEmpty">No identity provider is enabled yet. Finish identity setup from the admin dashboard or use a deployment session.</div>
           ) : (
             providers.map((provider) => (
               <button type="button" key={provider.id} onClick={() => signIn(provider)} disabled={Boolean(loadingProvider)}>

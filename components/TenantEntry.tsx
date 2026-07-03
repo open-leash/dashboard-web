@@ -4,7 +4,15 @@ import { FormEvent, useEffect, useState } from "react";
 import { ArrowRight, Building2, Loader2 } from "lucide-react";
 import { apiFetch } from "../lib/api-client";
 
-export function TenantEntry({ apiUrl, tenantDomain }: { apiUrl: string; tenantDomain: string }) {
+export function TenantEntry({
+  apiUrl,
+  tenantDomain,
+  hostedAuthStartPath
+}: {
+  apiUrl: string;
+  tenantDomain: string;
+  hostedAuthStartPath?: string;
+}) {
   const [organizationUrl, setOrganizationUrl] = useState("");
   const [busy, setBusy] = useState<"signin" | "google" | "microsoft" | null>(null);
   const [error, setError] = useState("");
@@ -111,9 +119,10 @@ export function TenantEntry({ apiUrl, tenantDomain }: { apiUrl: string; tenantDo
   }
 
   function startWorkSignIn(provider: "google" | "microsoft") {
+    if (!hostedAuthStartPath) return;
     setError("");
     setBusy(provider);
-    window.location.href = `/auth/cloud/start?provider=${provider}`;
+    window.location.href = `${hostedAuthStartPath}?provider=${provider}`;
   }
 
   return (
@@ -124,26 +133,26 @@ export function TenantEntry({ apiUrl, tenantDomain }: { apiUrl: string; tenantDo
           <span>OpenLeash</span>
         </div>
         <div>
-          <h1>{finishingClientSetup ? "Opening your workspace" : "Set up your organization"}</h1>
-          <p>{finishingClientSetup ? "Finishing desktop setup and taking you to the right OpenLeash workspace." : "Use your work Google Workspace or Microsoft 365 account. OpenLeash will recognize your company domain and continue in the right workspace."}</p>
+          <h1>{finishingClientSetup ? "Opening your workspace" : "Open your organization"}</h1>
+          <p>{finishingClientSetup ? "Finishing desktop setup and taking you to the right OpenLeash workspace." : hostedAuthStartPath ? "Use your work Google Workspace or Microsoft 365 account, or enter an existing workspace URL." : "Enter your self-hosted OpenLeash workspace URL to continue."}</p>
         </div>
         {error ? <div className="setupNotice danger">{error}</div> : null}
         {finishingClientSetup && !error ? <Loader2 className="spin" size={28} /> : null}
         {!finishingClientSetup || error ? (
           <>
-            <div className="tenantEntryForm">
+            {hostedAuthStartPath ? <div className="tenantEntryForm">
               <button type="button" disabled={busy !== null} onClick={() => startWorkSignIn("google")}>
                 {busy === "google" ? <Loader2 size={18} className="spin" /> : <>Continue with Google Workspace <ArrowRight size={18} /></>}
               </button>
               <button type="button" disabled={busy !== null} onClick={() => startWorkSignIn("microsoft")}>
                 {busy === "microsoft" ? <Loader2 size={18} className="spin" /> : <>Continue with Microsoft 365 <ArrowRight size={18} /></>}
               </button>
-            </div>
-            <div className="setupNotice">
+            </div> : null}
+            {hostedAuthStartPath ? <div className="setupNotice">
               <Building2 size={18} />
               <span>If your organization already exists, you will be signed in. If it does not, onboarding starts automatically for your company domain.</span>
-            </div>
-            <div className="tenantEntryDivider"><span>or</span></div>
+            </div> : null}
+            {hostedAuthStartPath ? <div className="tenantEntryDivider"><span>or</span></div> : null}
             <form className="tenantEntryForm" onSubmit={signIn}>
               <label>
                 <span>Already have an OpenLeash workspace URL?</span>
@@ -171,7 +180,7 @@ function slugify(value: string) {
 function errorMessageForSetupFinish(error: unknown) {
   const message = error instanceof Error ? error.message : "";
   if (!message || message.toLowerCase().includes("fetch")) {
-    return "Desktop setup finished, but the dashboard API is not reachable from this browser. Start the OpenLeash Cloud dev stack and reload the workspace.";
+    return "Desktop setup finished, but the dashboard API is not reachable from this browser. Start the OpenLeash dashboard API and reload the workspace.";
   }
   return message;
 }

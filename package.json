@@ -8,7 +8,6 @@
     "./components/EnterpriseOnboarding": "./components/EnterpriseOnboarding.tsx",
     "./components/TenantEntry": "./components/TenantEntry.tsx",
     "./components/TenantLogin": "./components/TenantLogin.tsx",
-    "./components/CloudGoogleCallback": "./components/CloudGoogleCallback.tsx",
     "./lib/api-client": "./lib/api-client.ts",
     "./openleash.css": "./public/openleash.css"
   },
