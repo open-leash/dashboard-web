@@ -85,6 +85,7 @@ const privateSteps = [
 
 const providers = [
   { id: "azure", name: "Microsoft Entra ID", detail: "Microsoft 365 and Azure AD tenants", popular: true, icon: "microsoft" },
+  { id: "oidc", name: "Generic OIDC", detail: "Keycloak, Authentik, Auth0, or any OpenID issuer", popular: true, icon: "key" },
   { id: "okta", name: "Okta", detail: "Okta Workforce Identity", popular: true, icon: "okta" },
   { id: "google", name: "Google Workspace", detail: "Google Cloud Identity and Workspace", icon: "google" },
   { id: "ping", name: "Ping Identity", detail: "PingOne and PingFederate", icon: "ping" },
@@ -132,6 +133,10 @@ export function EnterpriseOnboarding({
     tenantId: "",
     clientId: "",
     clientSecret: "",
+    issuerUrl: "",
+    authorizationEndpoint: "",
+    tokenEndpoint: "",
+    userinfoEndpoint: "",
     domain: "",
     apiToken: "",
     oktaClientId: "",
@@ -484,6 +489,19 @@ export function EnterpriseOnboarding({
                 <label>Client secret<input placeholder="Secret value, not secret ID" type="password" value={credentials.clientSecret} onChange={(event) => setCredentials({ ...credentials, clientSecret: event.target.value })} /></label>
               </>
             )}
+            {provider === "oidc" && (
+              <>
+                <div className="wide">
+                  <OidcSetupGuide />
+                </div>
+                <label className="wide">Issuer URL<input placeholder="https://auth.company.com/realms/openleash" value={credentials.issuerUrl} onChange={(event) => setCredentials({ ...credentials, issuerUrl: event.target.value })} /></label>
+                <label>Client ID<input placeholder="OpenID client ID" value={credentials.clientId} onChange={(event) => setCredentials({ ...credentials, clientId: event.target.value })} /></label>
+                <label>Client secret<input placeholder="Confidential client secret" type="password" value={credentials.clientSecret} onChange={(event) => setCredentials({ ...credentials, clientSecret: event.target.value })} /></label>
+                <label className="wide">Authorization endpoint <span>optional</span><input placeholder="Discovered from issuer when blank" value={credentials.authorizationEndpoint} onChange={(event) => setCredentials({ ...credentials, authorizationEndpoint: event.target.value })} /></label>
+                <label>Token endpoint <span>optional</span><input placeholder="Discovered from issuer when blank" value={credentials.tokenEndpoint} onChange={(event) => setCredentials({ ...credentials, tokenEndpoint: event.target.value })} /></label>
+                <label>Userinfo endpoint <span>optional</span><input placeholder="Discovered from issuer when blank" value={credentials.userinfoEndpoint} onChange={(event) => setCredentials({ ...credentials, userinfoEndpoint: event.target.value })} /></label>
+              </>
+            )}
             {provider === "okta" && (
               <>
                 <div className="wide">
@@ -816,6 +834,40 @@ function EntraSetupGuide() {
   );
 }
 
+function OidcSetupGuide() {
+  return (
+    <div className="idpGuide oidcGuide">
+      <div>
+        <h4><CheckCircle2 size={18} /> What OpenLeash needs from Generic OIDC</h4>
+        <p>OpenLeash uses the Authorization Code flow against your issuer and reads profile claims from userinfo or the ID token. This works well with Keycloak, Authentik, Auth0, or a company-managed OpenID Connect provider.</p>
+      </div>
+      <ol>
+        <li>
+          <strong>Create a confidential OIDC application</strong>
+          <span>Create an OpenLeash dashboard application in your identity provider and enable the Authorization Code flow.</span>
+        </li>
+        <li>
+          <strong>Add the dashboard callback URL</strong>
+          <span>Allow the callback URL used by your dashboard deployment, usually https://dashboard.company.com/auth/sso/callback or the local development dashboard URL.</span>
+        </li>
+        <li>
+          <strong>Paste issuer and client credentials</strong>
+          <span>Use the issuer URL whenever possible. OpenLeash discovers authorization, token, and userinfo endpoints from .well-known/openid-configuration.</span>
+        </li>
+        <li>
+          <strong>Keep identity sync explicit</strong>
+          <span>Use the Identity Loader, SCIM, or directory connector for user and group lifecycle sync. OIDC signs users in; it should not be the only source for org membership.</span>
+        </li>
+      </ol>
+      <div className="idpNeedBox">
+        <span><strong>Issuer URL</strong><small>The OpenID issuer used for discovery.</small></span>
+        <span><strong>Client ID</strong><small>The dashboard application client ID.</small></span>
+        <span><strong>Client secret</strong><small>A confidential client secret stored by the API.</small></span>
+      </div>
+    </div>
+  );
+}
+
 function GoogleWorkspaceSetupGuide() {
   return (
     <div className="idpGuide googleGuide">
@@ -989,6 +1041,7 @@ function ProviderIcon({ icon }: { icon: string }) {
   if (icon === "okta") return <SimpleIcon path={siOkta.path} title={siOkta.title} color={`#${siOkta.hex}`} />;
   if (icon === "google") return <SimpleIcon path={siGooglecloud.path} title={siGooglecloud.title} color={`#${siGooglecloud.hex}`} />;
   if (icon === "ping") return <PingIcon />;
+  if (icon === "key") return <KeyRound size={24} strokeWidth={2.2} />;
   return <MicrosoftIcon />;
 }
 
@@ -1086,6 +1139,10 @@ export function IdentityProviderSetup({ apiUrl, initialData, organizationSlug }:
     tenantId: "",
     clientId: "",
     clientSecret: "",
+    issuerUrl: "",
+    authorizationEndpoint: "",
+    tokenEndpoint: "",
+    userinfoEndpoint: "",
     domain: "",
     apiToken: "",
     oktaClientId: "",
@@ -1207,6 +1264,17 @@ export function IdentityProviderSetup({ apiUrl, initialData, organizationSlug }:
             <label>Tenant ID<input placeholder="00000000-0000-0000-0000-000000000000" value={credentials.tenantId} onChange={(event) => setCredentials({ ...credentials, tenantId: event.target.value })} /></label>
             <label>Client ID<input placeholder="Application client ID" value={credentials.clientId} onChange={(event) => setCredentials({ ...credentials, clientId: event.target.value })} /></label>
             <label>Client secret<input placeholder="Secret value, not secret ID" type="password" value={credentials.clientSecret} onChange={(event) => setCredentials({ ...credentials, clientSecret: event.target.value })} /></label>
+          </>
+        )}
+        {provider === "oidc" && (
+          <>
+            <div className="wide"><OidcSetupGuide /></div>
+            <label className="wide">Issuer URL<input placeholder="https://auth.company.com/realms/openleash" value={credentials.issuerUrl} onChange={(event) => setCredentials({ ...credentials, issuerUrl: event.target.value })} /></label>
+            <label>Client ID<input placeholder="OpenID client ID" value={credentials.clientId} onChange={(event) => setCredentials({ ...credentials, clientId: event.target.value })} /></label>
+            <label>Client secret<input placeholder="Confidential client secret" type="password" value={credentials.clientSecret} onChange={(event) => setCredentials({ ...credentials, clientSecret: event.target.value })} /></label>
+            <label className="wide">Authorization endpoint <span>optional</span><input placeholder="Discovered from issuer when blank" value={credentials.authorizationEndpoint} onChange={(event) => setCredentials({ ...credentials, authorizationEndpoint: event.target.value })} /></label>
+            <label>Token endpoint <span>optional</span><input placeholder="Discovered from issuer when blank" value={credentials.tokenEndpoint} onChange={(event) => setCredentials({ ...credentials, tokenEndpoint: event.target.value })} /></label>
+            <label>Userinfo endpoint <span>optional</span><input placeholder="Discovered from issuer when blank" value={credentials.userinfoEndpoint} onChange={(event) => setCredentials({ ...credentials, userinfoEndpoint: event.target.value })} /></label>
           </>
         )}
         {provider === "okta" && (
