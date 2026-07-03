@@ -1,4 +1,4 @@
-import { DashboardShell, type DashboardExtensionTab, type DashboardTab, type LogsData, type McpServersData, type Overview, type ProviderUsageData, type SecurityData, type SkillsData } from "../components/DashboardShell";
+import { DashboardShell, type DashboardExtensionTab, type DashboardTab, type DebugLogsData, type LogsData, type McpServersData, type Overview, type ProviderUsageData, type SecurityData, type SkillsData } from "../components/DashboardShell";
 import { DashboardAuthGate } from "../components/DashboardAuth";
 import { apiFetch } from "../lib/api-client";
 import { cookies } from "next/headers";
@@ -57,6 +57,22 @@ async function getLogs(searchParams?: Record<string, string | undefined>, tenant
   }
   try {
     const response = await apiFetch(`${api}/admin/logs?${query.toString()}`, "adminLogs", requestOptions(authToken));
+    if (!response.ok) return null;
+    return response.json();
+  } catch {
+    return null;
+  }
+}
+
+async function getDebugLogs(searchParams?: Record<string, string | undefined>, tenantSlug?: string, authToken?: string): Promise<DebugLogsData | null> {
+  const api = process.env.OPENLEASH_API_URL ?? "http://localhost:9319";
+  const query = new URLSearchParams();
+  if (tenantSlug) query.set("organizationSlug", tenantSlug);
+  for (const [key, value] of Object.entries(searchParams ?? {})) {
+    if (value) query.set(key, value);
+  }
+  try {
+    const response = await apiFetch(`${api}/admin/debug?${query.toString()}`, "adminLogs", requestOptions(authToken));
     if (!response.ok) return null;
     return response.json();
   } catch {
@@ -182,6 +198,7 @@ export async function DashboardPage({
   logId,
   triggerSearchParams,
   logsSearchParams,
+  debugSearchParams,
   usageSearchParams,
   securitySearchParams,
   usersSearchParams,
@@ -195,6 +212,7 @@ export async function DashboardPage({
   logId?: string;
   triggerSearchParams?: Record<string, string | undefined>;
   logsSearchParams?: Record<string, string | undefined>;
+  debugSearchParams?: Record<string, string | undefined>;
   usageSearchParams?: Record<string, string | undefined>;
   securitySearchParams?: Record<string, string | undefined>;
   usersSearchParams?: Record<string, string | undefined>;
@@ -211,11 +229,12 @@ export async function DashboardPage({
   const authSession = await getAuthSession(authToken);
   const dashboardMode = dashboardModeFor(authSession, tenantSlug);
   const safeInitialTab = tabForDashboardMode(initialTab, dashboardMode);
-  const [data, triggerData, triggerDetail, logsData, logDetail, externalAgents, providerUsage, securityData, mcpServers, skills, onboardingData] = await Promise.all([
+  const [data, triggerData, triggerDetail, logsData, debugLogsData, logDetail, externalAgents, providerUsage, securityData, mcpServers, skills, onboardingData] = await Promise.all([
     getOverview(tenantSlug, authToken),
     safeInitialTab === "triggers" ? getTriggers(triggerSearchParams, tenantSlug, authToken) : Promise.resolve(null),
     safeInitialTab === "triggers" && triggerId ? getTriggerDetail(triggerId, tenantSlug, authToken) : Promise.resolve(null),
     safeInitialTab === "logs" ? getLogs(logsSearchParams, tenantSlug, authToken) : Promise.resolve(null),
+    safeInitialTab === "debug" || safeInitialTab === "log" ? getDebugLogs(debugSearchParams, tenantSlug, authToken) : Promise.resolve(null),
     safeInitialTab === "logs" && logId ? getLogDetail(logId, tenantSlug, authToken) : Promise.resolve(null),
     safeInitialTab === "external-agents" ? getExternalAgents(tenantSlug, authToken) : Promise.resolve(null),
     safeInitialTab === "usage" ? getProviderUsage(usageSearchParams, tenantSlug, authToken) : Promise.resolve(null),
@@ -233,8 +252,10 @@ export async function DashboardPage({
       triggerData={triggerData}
       triggerDetail={triggerDetail}
       logsData={logDetail ? { logs: [], logDetail } : logsData}
+      debugLogsData={debugLogsData}
       triggerSearchParams={triggerSearchParams}
       logsSearchParams={logsSearchParams}
+      debugSearchParams={debugSearchParams}
       usageSearchParams={usageSearchParams}
       securitySearchParams={securitySearchParams}
       usersSearchParams={usersSearchParams}
@@ -289,7 +310,7 @@ function dashboardModeFor(authSession: DashboardAuthSession | null, tenantSlug?:
 
 function tabForDashboardMode(tab: DashboardTab, mode: "organization" | "personal"): DashboardTab {
   if (mode === "organization") return tab;
-  const allowed = new Set<DashboardTab>(["overview", "agents", "usage", "triggers", "logs", "skills", "mcps", "policies", "tokens", "settings"]);
+  const allowed = new Set<DashboardTab>(["overview", "agents", "usage", "triggers", "logs", "debug", "log", "skills", "mcps", "policies", "tokens", "settings"]);
   return allowed.has(tab) ? tab : "overview";
 }
 

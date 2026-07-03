@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { ChevronRight, KeyRound, PlugZap } from "lucide-react";
+import { ChevronRight, Github, KeyRound, PlugZap } from "lucide-react";
 import type { PluginCatalogItem } from "@openleash/shared";
 import { DeploymentTokenIssuer } from "./DeploymentTokenIssuer";
 import { TokenIssuer } from "./TokenIssuer";
@@ -249,6 +249,11 @@ function PluginSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: string; org
                   <h2>{plugin.name}</h2>
                   <p>{plugin.marketplace?.shortDescription ?? plugin.description}</p>
                   <p className="setupCopy compact">By {plugin.marketplace?.developerName ?? plugin.publisher} · {plugin.slug ?? plugin.id}</p>
+                  {plugin.repositoryUrl || plugin.marketplace?.repositoryUrl ? (
+                    <a className="setupCopy compact pluginRepoTextLink" href={plugin.repositoryUrl ?? plugin.marketplace?.repositoryUrl} target="_blank" rel="noreferrer">
+                      <Github size={14} /> GitHub repo
+                    </a>
+                  ) : null}
                 </div>
                 <PlugZap size={20} />
               </div>

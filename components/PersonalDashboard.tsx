@@ -10,6 +10,8 @@ import {
   ClipboardCheck,
   Cloud,
   Eye,
+  FileText,
+  Github,
   History,
   Home,
   Laptop,
@@ -63,6 +65,7 @@ type PersonalPlugin = {
   publisher?: string;
   author?: string;
   category?: string;
+  repositoryUrl?: string;
   installed?: boolean;
   iconText?: string;
   downloadCount?: number;
@@ -73,6 +76,7 @@ type PersonalPlugin = {
     developerName?: string;
     downloadCount?: number;
     iconText?: string;
+    repositoryUrl?: string;
   };
   settings?: {
     enabled?: boolean;
@@ -486,6 +490,7 @@ function PersonalSidebar({
         <PersonalNavButton active={view === "plugins" && selectedCategory === "all"} icon={<Plus />} label="Add plugins" badge={availableCount} onClick={() => onCategory("all")} />
         <PersonalNavButton active={view === "usage"} icon={<Activity />} label="Usage" onClick={() => onView("usage")} />
         <PersonalNavButton active={view === "history"} icon={<History />} label="History" onClick={() => onView("history")} />
+        <PersonalNavButton active={false} icon={<FileText />} label="Log" onClick={() => { window.location.href = "/log"; }} />
         <PersonalNavButton active={view === "settings"} icon={<Settings />} label="Settings" onClick={() => onView("settings")} />
       </nav>
     </aside>
@@ -567,26 +572,28 @@ function PersonalOverview({
         <DesktopSummary connected={desktopConnected} computer={desktopComputer} />
       </section>
       {message ? <p className="personalSyncMessage">{message}</p> : null}
-      <section className="personalAgentGrid">
-        {agents.map((agent) => (
-          <article className={`personalAgentTile ${agent.installed ? agent.protected ? "active" : "unmonitored" : "missing"}`} key={agent.kind}>
-            <span className={agent.installed ? "personalAgentIcon" : "personalAgentIcon muted"}><img src={agent.icon} alt="" /></span>
-            <span className="personalAgentText">
-              <strong>{agent.displayName}</strong>
-              <small>{agent.detail}</small>
-              {agent.installed ? (
-                <span className="personalAgentMeta">
-                  {agentInstallBadges(agent).map((badge) => <i className={badge.kind} title={badge.title} key={badge.kind}>{badge.icon}</i>)}
-                  <label className="personalSwitch" title={agent.desiredMonitored ? "Monitored" : "Unmonitored"}>
-                    <input type="checkbox" checked={agent.desiredMonitored} onChange={(event) => onAgentMonitoringChange(agent.kind, event.currentTarget.checked)} />
-                    <span />
-                  </label>
-                </span>
-              ) : null}
-            </span>
-          </article>
-        ))}
-      </section>
+      {agentsOnly ? (
+        <section className="personalAgentGrid">
+          {agents.map((agent) => (
+            <article className={`personalAgentTile ${agent.installed ? agent.protected ? "active" : "unmonitored" : "missing"}`} key={agent.kind}>
+              <span className={agent.installed ? "personalAgentIcon" : "personalAgentIcon muted"}><img src={agent.icon} alt="" /></span>
+              <span className="personalAgentText">
+                <strong>{agent.displayName}</strong>
+                <small>{agent.detail}</small>
+                {agent.installed ? (
+                  <span className="personalAgentMeta">
+                    {agentInstallBadges(agent).map((badge) => <i className={badge.kind} title={badge.title} key={badge.kind}>{badge.icon}</i>)}
+                    <label className="personalSwitch" title={agent.desiredMonitored ? "Monitored" : "Unmonitored"}>
+                      <input type="checkbox" checked={agent.desiredMonitored} onChange={(event) => onAgentMonitoringChange(agent.kind, event.currentTarget.checked)} />
+                      <span />
+                    </label>
+                  </span>
+                ) : null}
+              </span>
+            </article>
+          ))}
+        </section>
+      ) : null}
     </>
   );
 }
@@ -667,6 +674,11 @@ function PluginMarketplacePanel({
         <div className="personalMarketplaceGrid">
           {filtered.map((plugin) => (
             <article className="personalMarketplaceCard" key={plugin.id}>
+              {pluginRepositoryUrl(plugin) ? (
+                <a className="personalPluginRepoLink" href={pluginRepositoryUrl(plugin)} target="_blank" rel="noreferrer" aria-label={`${pluginPackageName(plugin)} GitHub repository`}>
+                  <Github size={15} />
+                </a>
+              ) : null}
               <div className="personalMarketplaceCardTop">
                 <span className={`personalPluginIcon ${pluginCategory(plugin)}`}>{pluginIconText(plugin)}</span>
                 <div>
@@ -777,6 +789,7 @@ function PluginDetail({
   const config = effectivePluginConfig(plugin, draft);
   const settings = pluginSettingDefinitions(plugin, config);
   const [activeTab, setActiveTab] = useState<"insights" | "outcomes" | "settings">("insights");
+  const repositoryUrl = pluginRepositoryUrl(plugin);
   return (
     <section className="personalPanel personalPluginDetail">
       <div className="personalPluginDetailHead">
@@ -792,6 +805,7 @@ function PluginDetail({
       {message ? <p className="personalSyncMessage">{message}</p> : null}
       <div className="personalPluginMeta">
         <span><User size={14} /> {plugin.author || plugin.marketplace?.developerName || plugin.publisher || "OpenLeash"}</span>
+        {repositoryUrl ? <a href={repositoryUrl} target="_blank" rel="noreferrer"><Github size={14} /> GitHub repo</a> : null}
         <span>{pluginStatusLabel(plugin)}</span>
         {locked ? <span>settings locked by org</span> : null}
       </div>
@@ -1048,6 +1062,10 @@ function pluginDescription(plugin: PersonalPlugin) {
 
 function pluginAuthor(plugin: PersonalPlugin) {
   return plugin.author || plugin.marketplace?.developerName || (plugin.publisher === "openleash" ? "OpenLeash" : plugin.publisher) || "OpenLeash";
+}
+
+function pluginRepositoryUrl(plugin: PersonalPlugin) {
+  return plugin.repositoryUrl || plugin.marketplace?.repositoryUrl || "";
 }
 
 function effectivePluginConfig(plugin: PersonalPlugin, draft?: Record<string, unknown>) {

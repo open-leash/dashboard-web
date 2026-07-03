@@ -111,6 +111,45 @@ nav { display: grid; gap: 12px; }
   background: #eef3f0;
 }
 
+@media (min-width: 901px) {
+  main {
+    width: min(1500px, calc(100vw - 40px));
+    min-height: calc(100vh - 40px);
+    margin: 20px auto;
+    grid-template-columns: 220px minmax(0, 1fr);
+    border-radius: 22px;
+  }
+
+  .sidebar {
+    min-height: calc(100vh - 40px);
+    padding: 24px 16px 18px;
+  }
+
+  .brand {
+    gap: 10px;
+    padding-bottom: 36px;
+  }
+
+  .brand strong { font-size: 16px; }
+  .brand span { font-size: 11px; }
+
+  .mark {
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
+  }
+
+  nav { gap: 8px; }
+
+  .navItem {
+    gap: 10px;
+    min-height: 38px;
+    padding: 0 10px;
+    border-radius: 11px;
+    font-size: 12px;
+  }
+}
+
 .navItem.active svg { color: var(--green); }
 
 .sidebarStatus {

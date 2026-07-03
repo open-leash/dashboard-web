@@ -696,6 +696,7 @@ a { color: inherit; text-decoration: none; }
 }
 
 .personalMarketplaceCard {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -704,6 +705,27 @@ a { color: inherit; text-decoration: none; }
   border: 1px solid #e7e1d8;
   border-radius: 8px;
   background: #fcfcfa;
+}
+
+.personalPluginRepoLink {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #e7e1d8;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #11110f;
+}
+
+.personalPluginRepoLink:hover,
+.personalPluginRepoLink:focus-visible {
+  border-color: #cfc7b9;
+  background: #f4f2ed;
 }
 
 .personalMarketplaceCardTop {
@@ -879,7 +901,8 @@ a { color: inherit; text-decoration: none; }
   margin: 18px 0;
 }
 
-.personalPluginMeta span {
+.personalPluginMeta span,
+.personalPluginMeta a {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -888,6 +911,7 @@ a { color: inherit; text-decoration: none; }
   background: #f4f2ed;
   color: #6e6b64;
   font-weight: 800;
+  text-decoration: none;
 }
 
 .personalPluginDetailGrid {
@@ -2124,6 +2148,10 @@ a { color: inherit; text-decoration: none; }
   grid-template-columns: minmax(240px, 1.6fr) repeat(6, minmax(120px, 1fr)) auto;
 }
 
+.debugFilters {
+  grid-template-columns: minmax(240px, 1.5fr) minmax(150px, 1fr) repeat(5, minmax(112px, .8fr)) auto;
+}
+
 .triggerFilters label {
   display: grid;
   gap: 6px;
@@ -2188,6 +2216,123 @@ a { color: inherit; text-decoration: none; }
   border-color: rgba(15, 17, 21, .14);
   box-shadow: var(--shadow-sm);
 }
+
+.debugLogList {
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.debugLogRow {
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid rgba(15, 17, 21, .08);
+  border-radius: 16px;
+}
+
+.debugLogRow[open] {
+  border-color: rgba(111, 140, 242, .24);
+  box-shadow: var(--shadow-sm);
+}
+
+.debugLogRow summary {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr) minmax(180px, .7fr) 18px;
+  gap: 14px;
+  align-items: center;
+  padding: 15px 16px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.debugLogRow summary::-webkit-details-marker {
+  display: none;
+}
+
+.debugLevel {
+  justify-self: start;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--panel-soft);
+  color: var(--ink-2);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.debugLevel.debug { color: #6550f5; background: #eee9ff; }
+.debugLevel.info { color: #2d6be8; background: #e8f0ff; }
+.debugLevel.warn { color: #9a6a16; background: #fff5dd; }
+.debugLevel.error { color: #bd2d3f; background: #ffe8ee; }
+.debugLevel.security { color: #0b8374; background: #ddefe8; }
+
+.debugLogMain {
+  min-width: 0;
+}
+
+.debugLogMain strong,
+.debugLogMain small,
+.debugLogContext {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.debugLogMain strong {
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.debugLogMain small,
+.debugLogContext {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.debugLogContext {
+  margin-top: 0;
+  text-align: right;
+}
+
+.debugChevron {
+  color: var(--muted);
+  transition: transform .16s ease;
+}
+
+.debugLogRow[open] .debugChevron {
+  transform: rotate(90deg);
+}
+
+.debugLogDetail {
+  display: grid;
+  gap: 16px;
+  padding: 0 16px 16px;
+}
+
+.debugJsonGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.debugJsonTitle {
+  margin-bottom: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.debugJsonGrid pre {
+  max-height: 280px;
+  overflow: auto;
+  margin: 0;
+}
+
 .logAuditRow .audit-evidence {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 12px;
@@ -2287,6 +2432,19 @@ a { color: inherit; text-decoration: none; }
   font-size: 14px;
   font-weight: 700;
   line-height: 1.45;
+}
+
+.pluginRepoTextLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #11110f;
+  text-decoration: none;
+}
+
+.pluginRepoTextLink:hover,
+.pluginRepoTextLink:focus-visible {
+  color: #5b47e0;
 }
 
 .transformFields {
@@ -5534,6 +5692,290 @@ input:focus, textarea:focus, select:focus {
   margin: 4px 0 0;
   color: var(--muted);
   line-height: 1.45;
+}
+
+@media (min-width: 901px) {
+  :root {
+    --radius-lg: 22px;
+    --radius-md: 16px;
+  }
+
+  .app {
+    grid-template-columns: 210px minmax(0, 1fr);
+    gap: 12px;
+    padding: 10px;
+  }
+
+  .sidebar {
+    top: 10px;
+    height: calc(100vh - 20px);
+    padding: 20px 12px 12px;
+  }
+
+  .brand {
+    gap: 8px;
+    padding: 2px 8px 24px;
+  }
+
+  .brand-mark,
+  .brand-mark img {
+    width: 26px;
+    height: 26px;
+  }
+
+  .brand-name {
+    font-size: 19px;
+  }
+
+  .nav {
+    gap: 6px;
+  }
+
+  .nav-item {
+    gap: 11px;
+    min-height: 42px;
+    padding: 10px 12px;
+    border-radius: 11px;
+    font-size: 13px;
+  }
+
+  .nav-item .ic,
+  .nav-item svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .nav-item .badge {
+    min-width: 18px;
+    padding: 1px 6px;
+    font-size: 10px;
+  }
+
+  .navSubtree {
+    margin-left: 32px;
+  }
+
+  .nav-subitem {
+    min-height: 28px;
+    padding: 5px 8px;
+    font-size: 12px;
+  }
+
+  .personalClientApp {
+    grid-template-columns: 250px minmax(0, 1fr);
+    gap: 16px;
+    padding: 14px;
+  }
+
+  .personalClientSidebar {
+    padding: 10px 8px;
+  }
+
+  .personalClientSidebar .brand {
+    padding-bottom: 22px;
+  }
+
+  .personalClientSidebar .brand-name {
+    font-size: 17px;
+  }
+
+  .personalNavItem {
+    min-height: 42px;
+    border-radius: 10px;
+  }
+
+  .personalNavItem .badge {
+    min-width: 22px;
+    height: 22px;
+    font-size: 12px;
+  }
+
+  .personalNavGroup {
+    gap: 3px;
+  }
+
+  .personalNavPlugin {
+    min-height: 28px;
+    margin-left: 28px;
+    padding: 5px 9px;
+    font-size: 11px;
+  }
+
+  .personalClientMain {
+    gap: 14px;
+    padding-bottom: 28px;
+  }
+
+  .personalTopbar {
+    min-height: 30px;
+  }
+
+  .personalTopbar > span,
+  .personalCloudPill {
+    min-height: 28px;
+    padding: 0 12px;
+    font-size: 11px;
+  }
+
+  .personalPanel {
+    width: min(960px, 100%);
+    padding: 20px;
+    box-shadow: 0 12px 34px rgba(40, 34, 24, 0.06);
+  }
+
+  .personalActivity {
+    gap: 18px;
+    min-height: 128px;
+  }
+
+  .personalKicker,
+  .personalCategoryTag {
+    padding: 4px 9px;
+    font-size: 10px;
+    letter-spacing: 2px;
+  }
+
+  .personalActivity h1,
+  .personalOverviewHead h1 {
+    margin: 12px 0 4px;
+    font-size: clamp(28px, 3vw, 42px);
+  }
+
+  .personalActivity p,
+  .personalOverviewHead p,
+  .personalPluginDetailHead p {
+    font-size: 14px;
+  }
+
+  .personalOverviewHead {
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 390px);
+    gap: 16px;
+  }
+
+  .personalConnectedDevice {
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .personalConnectedDevice > span {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+  }
+
+  .personalConnectedDevice em {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+
+  .personalAgentGrid,
+  .personalPluginGrid {
+    grid-template-columns: repeat(3, minmax(170px, 1fr));
+    gap: 10px;
+    width: min(740px, 100%);
+  }
+
+  .personalAgentTile,
+  .personalPluginCard {
+    grid-template-columns: 48px minmax(0, 1fr);
+    gap: 12px;
+    min-height: 84px;
+    padding: 12px;
+  }
+
+  .personalAgentIcon,
+  .personalPluginIcon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+  }
+
+  .personalAgentIcon img {
+    width: 26px;
+    height: 26px;
+  }
+
+  .personalAgentText strong,
+  .personalPluginCard strong {
+    font-size: 15px;
+  }
+
+  .personalAgentText small,
+  .personalPluginCard p {
+    margin-top: 2px;
+    font-size: 11px;
+  }
+
+  .personalPanelHead h2,
+  .personalPluginDetailHead h2 {
+    font-size: 26px;
+  }
+
+  .main {
+    min-height: calc(100vh - 20px);
+    padding: 30px 34px 28px;
+  }
+
+  .topbar {
+    margin-bottom: 22px;
+  }
+
+  .page-head h1 {
+    font-size: 34px;
+  }
+
+  .page-head .sub {
+    margin-top: 8px;
+    font-size: 14px;
+  }
+
+  .stat-row {
+    gap: 16px;
+  }
+
+  .stat-ico {
+    width: 48px;
+    height: 48px;
+    flex-basis: 48px;
+  }
+
+  .stat-value {
+    font-size: 26px;
+  }
+
+  .cards {
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 12px;
+  }
+
+  .agent-card {
+    gap: 12px;
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .agent-logo,
+  .agent-logo.large {
+    width: 42px;
+    height: 42px;
+  }
+
+  .agent-name {
+    font-size: 16px;
+  }
+
+  .agent-vendor {
+    font-size: 12px;
+  }
+
+  .card-title {
+    margin-bottom: 14px;
+  }
+
+  .card-title h3 {
+    font-size: 22px;
+  }
 }
 
 @media (max-width: 1080px) {

@@ -16,6 +16,7 @@ import {
   Code2,
   Database,
   FileClock,
+  FileText,
   GitBranch,
   Home,
   MonitorDown,
@@ -197,7 +198,7 @@ type ConversationTurnView = {
   at?: string;
 };
 
-export type CoreDashboardTab = "overview" | "security" | "usage" | "setup" | "settings" | "triggers" | "users" | "identity" | "agents" | "external-agents" | "mcps" | "skills" | "policies" | "tokens" | "deployment";
+export type CoreDashboardTab = "overview" | "security" | "usage" | "setup" | "settings" | "triggers" | "users" | "identity" | "agents" | "external-agents" | "mcps" | "skills" | "policies" | "tokens" | "deployment" | "debug" | "log";
 export type DashboardTab = CoreDashboardTab | (string & {});
 export type DashboardExtensionTab = {
   id: string;
@@ -343,6 +344,36 @@ export type SecurityData = {
 export type LogsData = {
   logs: LogItem[];
   logDetail?: { log: LogItem & { resolution_guidance?: string | null; model?: string | null } } | null;
+};
+
+export type DebugLogItem = {
+  id: string;
+  plugin_id: string;
+  level: "debug" | "info" | "warn" | "error" | "security";
+  category?: string | null;
+  code?: string | null;
+  message: string;
+  scope?: Record<string, unknown> | null;
+  data?: Record<string, unknown> | null;
+  created_at: string;
+  conversation_event_id?: string | null;
+  session_id?: string | null;
+  event_name?: string | null;
+  tool_name?: string | null;
+  project_path?: string | null;
+  occurred_at?: string | null;
+  agent_name?: string | null;
+  agent_kind?: string | null;
+  agent_version?: string | null;
+  hostname?: string | null;
+  platform?: string | null;
+  user_id?: string | null;
+  user_name?: string | null;
+  user_email?: string | null;
+};
+
+export type DebugLogsData = {
+  debugLogs: DebugLogItem[];
 };
 
 type LogItem = {
@@ -816,8 +847,10 @@ export function DashboardShell({
   triggerData,
   triggerDetail,
   logsData,
+  debugLogsData,
   triggerSearchParams,
   logsSearchParams,
+  debugSearchParams,
   usageSearchParams,
   securitySearchParams,
   usersSearchParams,
@@ -842,8 +875,10 @@ export function DashboardShell({
   triggerData?: { triggers: TriggerItem[] } | null;
   triggerDetail?: TriggerDetail | null;
   logsData?: LogsData | null;
+  debugLogsData?: DebugLogsData | null;
   triggerSearchParams?: Record<string, string | undefined>;
   logsSearchParams?: Record<string, string | undefined>;
+  debugSearchParams?: Record<string, string | undefined>;
   usageSearchParams?: Record<string, string | undefined>;
   securitySearchParams?: Record<string, string | undefined>;
   usersSearchParams?: Record<string, string | undefined>;
@@ -908,6 +943,7 @@ export function DashboardShell({
         {(tab === "setup" || tab === "settings") && <SettingsPage apiUrl={apiUrl} onboardingData={onboardingData ?? null} tenantDomain={tenantDomain} tenantSlug={tenantSlug} mode={dashboardMode} settingsItem={settingsSearchParams?.item} />}
         {tab === "triggers" && <TriggersPage triggers={triggerData?.triggers ?? []} detail={triggerDetail?.trigger} filters={triggerSearchParams ?? {}} mode={dashboardMode} basePath={basePath} />}
         {tab === "logs" && <LogsPage logs={logsData?.logs ?? []} detail={logsData?.logDetail?.log} filters={logsSearchParams ?? {}} mode={dashboardMode} basePath={basePath} />}
+        {(tab === "debug" || tab === "log") && <DebugLogsPage logs={debugLogsData?.debugLogs ?? []} filters={debugSearchParams ?? {}} mode={dashboardMode} basePath={basePath} />}
         {tab === "users" && <UsersPage users={users} mode={dashboardMode} basePath={basePath} identitySource={identitySourceLabel(onboardingData, users)} filters={usersSearchParams ?? {}} />}
         {tab === "identity" && (personal ? <PersonalIdentityPage /> : <IdentityPage apiUrl={apiUrl} onboardingData={onboardingData ?? null} />)}
         {tab === "agents" && <AgentsPage agents={agents} recent={recent} mode={dashboardMode} basePath={basePath} />}
@@ -997,6 +1033,7 @@ function Sidebar({
               badge={item.badge}
             />
           ))}
+        <NavButton active={tab === "debug" || tab === "log"} href={dashboardHref(basePath, "/log")} icon={<FileText />} label="Log" />
         <NavButton active={settingsOpen} href={dashboardHref(basePath, "/settings")} icon={<Settings />} label="Settings" />
         {settingsOpen && !personal && (
           <Suspense fallback={null}>
@@ -1013,7 +1050,7 @@ function Sidebar({
   );
 }
 
-type DashboardHref = "/" | "/security" | "/usage" | "/setup" | "/settings" | "/events" | "/triggers" | "/logs" | "/users" | "/identity" | "/agents" | "/external-agents" | "/mcps" | "/skills" | "/policies" | "/tokens" | "/deployment";
+type DashboardHref = "/" | "/security" | "/usage" | "/setup" | "/settings" | "/events" | "/triggers" | "/logs" | "/debug" | "/log" | "/users" | "/identity" | "/agents" | "/external-agents" | "/mcps" | "/skills" | "/policies" | "/tokens" | "/deployment";
 
 function dashboardHref(basePath: string, href: DashboardHref | string) {
   if (!basePath) return href;
@@ -1032,21 +1069,6 @@ function NavButton({ active, href, icon, label, badge }: { active: boolean; href
       <span>{label}</span>
       {badge ? <span className="badge">{badge}</span> : null}
     </Link>
-  );
-}
-
-function OverviewPanel({ title, href, children }: { title: string; href: string; children: React.ReactNode }) {
-  return (
-    <section className="overviewPanel">
-      <div className="card-title">
-        <h3>{title}</h3>
-        <Link className="pill action-pill" href={href as any}>
-          <span>View</span>
-          <ChevronRight size={14} />
-        </Link>
-      </div>
-      <div className="overviewLeaderList">{children}</div>
-    </section>
   );
 }
 
@@ -1074,8 +1096,6 @@ function OverviewPage({
   setupPanel?: React.ReactNode;
 }) {
   const latest = recent.filter(isTriggerEvent).slice(0, 10);
-  const topAgents = overviewAgents(agents, users).slice(0, 7);
-  const topUsers = usageByEmployee(usageSessions).slice(0, 5);
   const topPolicies = policies
     .filter((policy) => numeric(policy.trigger_count) > 0)
     .sort((a, b) => numeric(b.trigger_count) - numeric(a.trigger_count))
@@ -1105,35 +1125,6 @@ function OverviewPage({
         {personal ? <Stat icon={<Laptop />} label="Computers" value={metrics.computers} /> : <Stat icon={<Users />} label="Managed users" value={String(managedUsers)} />}
         <Stat icon={<AlertTriangle />} label={personal ? "Things to review" : "Events"} value={String(totalTriggers)} />
         <Stat icon={<Clock3 />} label="Agent time 24h" value={formatDuration(metrics.session_time?.last24h_seconds)} />
-      </div>
-
-      <div className="overviewLeaderGrid">
-        <OverviewPanel title="Top agents" href={routeHref(basePath, "/agents")}>
-          {topAgents.map((agent) => (
-            <div className="overviewLeaderRow" key={agent.key}>
-              <AgentLogo name={agent.displayName} fallback={initials(agent.displayName).slice(0, 1)} size="small" />
-              <div>
-                <strong>{agent.displayName}</strong>
-                <span>{agent.users} user{agent.users === 1 ? "" : "s"} · {agent.installs} install{agent.installs === 1 ? "" : "s"}</span>
-              </div>
-            </div>
-          ))}
-          {topAgents.length === 0 && <Empty text="No agents have checked in yet." />}
-        </OverviewPanel>
-
-        <OverviewPanel title="Top users by usage" href={routeHref(basePath, "/usage")}>
-          {topUsers.map((user) => (
-            <div className="overviewLeaderRow" key={user.key}>
-              <span className="avatar-sm" style={{ background: avatarFor(user.name).bg, color: avatarFor(user.name).fg }}>{initials(user.name)}</span>
-              <div>
-                <strong>{user.name}</strong>
-                <span>{user.sessions} session{user.sessions === 1 ? "" : "s"} · {formatDuration(user.duration)}</span>
-              </div>
-              <em>{user.subagents} sub</em>
-            </div>
-          ))}
-          {topUsers.length === 0 && <Empty text="No usage recorded yet." />}
-        </OverviewPanel>
       </div>
 
       <div className="card-title overview-activity-head">
@@ -2980,6 +2971,136 @@ function LogsPage({
   );
 }
 
+function DebugLogsPage({
+  logs,
+  filters,
+  mode,
+  basePath
+}: {
+  logs: DebugLogItem[];
+  filters: Record<string, string | undefined>;
+  mode: DashboardMode;
+  basePath: string;
+}) {
+  const personal = mode === "personal";
+  return (
+    <>
+      <Topbar />
+      <div className="page-head">
+        <div>
+          <h1>Log</h1>
+          <p className="sub">{personal ? "Plugin and OpenLeash runtime logs from your local agent sessions." : "Plugin-emitted logs, runtime metadata, and linked event context across the organization."}</p>
+        </div>
+      </div>
+      <div className="divider" />
+      <form className="triggerFilters logsFilters debugFilters" action={dashboardHref(basePath, "/log")}>
+        <label>
+          <span>Search</span>
+          <div className="searchInput"><Search size={16} /><input name="q" defaultValue={filters.q ?? ""} placeholder="Message, metadata, session, host..." /></div>
+        </label>
+        <label>
+          <span>Plugin</span>
+          <input name="plugin" defaultValue={filters.plugin ?? ""} placeholder="openleash.dlp" />
+        </label>
+        <label>
+          <span>Level</span>
+          <select name="level" defaultValue={filters.level ?? ""}>
+            <option value="">Any</option>
+            <option value="debug">Debug</option>
+            <option value="info">Info</option>
+            <option value="warn">Warn</option>
+            <option value="error">Error</option>
+            <option value="security">Security</option>
+          </select>
+        </label>
+        <label>
+          <span>Category</span>
+          <select name="category" defaultValue={filters.category ?? ""}>
+            <option value="">Any</option>
+            <option value="plugin">Plugin</option>
+            <option value="system">System</option>
+            <option value="security">Security</option>
+            <option value="audit">Audit</option>
+          </select>
+        </label>
+        <label>
+          <span>Session</span>
+          <input name="session" defaultValue={filters.session ?? ""} placeholder="session id" />
+        </label>
+        <label>
+          <span>From</span>
+          <input name="dateFrom" type="date" defaultValue={filters.dateFrom ?? ""} />
+        </label>
+        <label>
+          <span>To</span>
+          <input name="dateTo" type="date" defaultValue={filters.dateTo ?? ""} />
+        </label>
+        <button type="submit">Search</button>
+      </form>
+
+      <div className="debugLogList">
+        {logs.map((log) => <DebugLogRow key={log.id} log={log} basePath={basePath} />)}
+        {logs.length === 0 && <Empty text="No plugin logs matched this search." />}
+      </div>
+    </>
+  );
+}
+
+function DebugLogRow({ log, basePath }: { log: DebugLogItem; basePath: string }) {
+  const context = [
+    log.user_name ?? log.user_email,
+    log.agent_name ?? log.agent_kind,
+    log.hostname,
+    log.session_id ? `session ${shortId(log.session_id)}` : undefined
+  ].filter(Boolean).join(" · ");
+  return (
+    <details className={`debugLogRow ${log.level}`}>
+      <summary>
+        <span className={`debugLevel ${log.level}`}>{log.level}</span>
+        <span className="debugLogMain">
+          <strong>{log.message}</strong>
+          <small>{pluginName(log.plugin_id)} · {log.code || log.category || "plugin"} · {relativeTime(log.created_at)}</small>
+        </span>
+        <span className="debugLogContext">{context || "No linked runtime context"}</span>
+        <ChevronRight size={18} className="debugChevron" />
+      </summary>
+      <div className="debugLogDetail">
+        <dl className="metaGrid">
+          <div><dt>Plugin</dt><dd>{log.plugin_id}</dd></div>
+          <div><dt>Level</dt><dd>{log.level}</dd></div>
+          <div><dt>Category</dt><dd>{log.category ?? "plugin"}</dd></div>
+          <div><dt>Code</dt><dd>{log.code ?? "none"}</dd></div>
+          <div><dt>Agent</dt><dd>{log.agent_name ?? log.agent_kind ?? "Unknown"}</dd></div>
+          <div><dt>User</dt><dd>{log.user_name ?? log.user_email ?? "Unknown"}</dd></div>
+          <div><dt>Host</dt><dd>{log.hostname ?? "Unknown"}</dd></div>
+          <div><dt>Event</dt><dd>{log.tool_name ?? log.event_name ?? "No event"}</dd></div>
+          <div><dt>Project</dt><dd>{log.project_path ?? "Unknown"}</dd></div>
+          <div><dt>Session</dt><dd>{log.session_id ?? String(log.scope?.sessionId ?? "Unknown")}</dd></div>
+          <div><dt>Created</dt><dd>{new Date(log.created_at).toLocaleString()}</dd></div>
+          <div><dt>Log id</dt><dd>{log.id}</dd></div>
+        </dl>
+        <div className="debugJsonGrid">
+          <div>
+            <div className="debugJsonTitle">Scope</div>
+            <pre>{safeJson(log.scope ?? {})}</pre>
+          </div>
+          <div>
+            <div className="debugJsonTitle">Metadata</div>
+            <pre>{safeJson(log.data ?? {})}</pre>
+          </div>
+        </div>
+        {log.conversation_event_id && (
+          <Link className="pill action-pill" href={routeHref(basePath, `/logs/${log.conversation_event_id}`)}>Open linked event</Link>
+        )}
+      </div>
+    </details>
+  );
+}
+
+function shortId(value: string) {
+  return value.length > 10 ? `${value.slice(0, 6)}...${value.slice(-4)}` : value;
+}
+
 function LogAuditRow({ log, basePath }: { log: LogItem; basePath: string }) {
   const state = logState(log);
   const title = logActionTitle(log);
@@ -3488,56 +3609,6 @@ function aggregateAgents(agents: Overview["agents"]) {
     users: agent.userNames.size,
     sessions: agent.sessions.sort((a, b) => new Date(b.last_activity_at ?? 0).getTime() - new Date(a.last_activity_at ?? 0).getTime())
   }));
-}
-
-function overviewAgents(agents: Overview["agents"], users: UserRow[]) {
-  const actual = aggregateAgents(agents);
-  const byKey = new Map(actual.map((agent) => [agent.key, agent]));
-  for (const user of users) {
-    const detectedAgents = Array.isArray(user.agents) ? user.agents : [];
-    const userName = user.display_name || user.email || "Unknown user";
-    const hostnames = Array.isArray(user.hostnames) ? user.hostnames.filter(Boolean) : [];
-    const endpointCount = Math.max(hostnames.length, numeric(user.endpoint_count));
-    for (const agentName of detectedAgents) {
-      const key = agentProductKey({ kind: agentName, display_name: agentName } as Overview["agents"][number]);
-      if (hiddenOverviewAgentKeys.has(key)) continue;
-      const current = byKey.get(key) ?? {
-        key,
-        displayName: agentProductName({ kind: agentName, display_name: agentName } as Overview["agents"][number]),
-        kind: agentProductKind({ kind: agentName, display_name: agentName } as Overview["agents"][number]),
-        users: 0,
-        installs: 0,
-        userNames: new Set<string>(),
-        hostnames: new Set<string>(),
-        sessions: []
-      };
-      current.userNames.add(userName);
-      for (const hostname of hostnames) current.hostnames.add(hostname);
-      current.installs = Math.max(current.installs, endpointCount || current.hostnames.size || 1);
-      current.users = current.userNames.size;
-      byKey.set(key, current);
-    }
-  }
-  for (const product of supportedAgentProducts) {
-    if (byKey.has(product.key)) continue;
-    byKey.set(product.key, {
-      ...product,
-      users: 0,
-      installs: 0,
-      userNames: new Set<string>(),
-      hostnames: new Set<string>(),
-      sessions: []
-    });
-  }
-  return Array.from(byKey.values()).sort((a, b) => {
-    a.users = a.userNames.size;
-    b.users = b.userNames.size;
-    a.installs = Math.max(a.installs, a.hostnames.size);
-    b.installs = Math.max(b.installs, b.hostnames.size);
-    const activityDelta = b.installs - a.installs || b.users - a.users;
-    if (activityDelta !== 0) return activityDelta;
-    return supportedAgentOrder(a.key) - supportedAgentOrder(b.key);
-  });
 }
 
 function supportedAgentOrder(key: string) {

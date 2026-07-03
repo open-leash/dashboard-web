@@ -4,10 +4,12 @@ import type { DashboardTab } from "../../../components/DashboardShell";
 
 const sectionTabs: Record<string, DashboardTab> = {
   agents: "agents",
+  debug: "debug",
   deployment: "deployment",
   events: "triggers",
   "external-agents": "external-agents",
   identity: "identity",
+  log: "log",
   logs: "logs",
   mcps: "mcps",
   policies: "policies",
@@ -56,6 +58,7 @@ export default async function TenantSection({
       initialTab={initialTab}
       triggerSearchParams={initialTab === "triggers" ? normalized : undefined}
       logsSearchParams={initialTab === "logs" ? normalized : undefined}
+      debugSearchParams={initialTab === "debug" || initialTab === "log" ? normalized : undefined}
       usageSearchParams={initialTab === "usage" ? normalized : undefined}
       securitySearchParams={initialTab === "security" ? normalized : undefined}
       skillsSearchParams={initialTab === "skills" ? normalized : undefined}
