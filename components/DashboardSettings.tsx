@@ -242,15 +242,17 @@ function PluginSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: string; org
               </label>
             </div>
           </section>
-          {plugins.map((plugin) => (
+          {plugins.map((plugin) => {
+            const repositoryUrl = pluginRepositoryUrl(plugin);
+            return (
             <section className="transformPanel" key={plugin.id}>
               <div className="transformPanelHead">
                 <div>
                   <h2>{plugin.name}</h2>
                   <p>{plugin.marketplace?.shortDescription ?? plugin.description}</p>
                   <p className="setupCopy compact">By {plugin.marketplace?.developerName ?? plugin.publisher} · {plugin.slug ?? plugin.id}</p>
-                  {plugin.repositoryUrl || plugin.marketplace?.repositoryUrl ? (
-                    <a className="setupCopy compact pluginRepoTextLink" href={plugin.repositoryUrl ?? plugin.marketplace?.repositoryUrl} target="_blank" rel="noreferrer">
+                  {repositoryUrl ? (
+                    <a className="setupCopy compact pluginRepoTextLink" href={repositoryUrl} target="_blank" rel="noreferrer">
                       <Github size={14} /> GitHub repo
                     </a>
                   ) : null}
@@ -322,7 +324,8 @@ function PluginSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: string; org
               </div>
               <PluginConfigFields plugin={plugin} saving={savingId === plugin.id} onChange={(config) => void savePlugin(plugin, { config })} />
             </section>
-          ))}
+            );
+          })}
         </div>
       )}
     </section>
@@ -641,6 +644,30 @@ function settingLabel(value: string) {
     .replace(/([A-Z])/g, " $1")
     .replace(/[_-]+/g, " ")
     .replace(/^./, (char) => char.toUpperCase());
+}
+
+const firstPartyPluginRepositories: Record<string, string> = {
+  "blast-radius": "https://github.com/open-leash/plugin-blast-radius",
+  "data-leakage-prevention": "https://github.com/open-leash/plugin-data-leakage-prevention",
+  "mcp-scanner": "https://github.com/open-leash/plugin-mcp-scanner",
+  "rules-enforcer": "https://github.com/open-leash/plugin-rules-enforcer",
+  "sensitive-access": "https://github.com/open-leash/plugin-sensitive-access",
+  "siem-exporter": "https://github.com/open-leash/plugin-siem-exporter",
+  "skill-scanner": "https://github.com/open-leash/plugin-skill-scanner",
+  "token-saver": "https://github.com/open-leash/plugin-token-saver"
+};
+
+function pluginRepositoryUrl(plugin: PluginCatalogItem) {
+  const slug = plugin.slug || plugin.marketplace?.slug || plugin.id.replace(/^openleash\./, "").replace("prompt-compression", "token-saver").replace("dlp", "data-leakage-prevention");
+  const isFirstParty = plugin.publisher === "openleash" || plugin.id.startsWith("openleash.");
+  if (isFirstParty && firstPartyPluginRepositories[slug]) return firstPartyPluginRepositories[slug];
+  return cleanPluginRepositoryUrl(plugin.repositoryUrl || plugin.marketplace?.repositoryUrl) || "";
+}
+
+function cleanPluginRepositoryUrl(repositoryUrl?: string) {
+  if (repositoryUrl === "https://github.com/open-leash/open-leash") return undefined;
+  if (repositoryUrl === "https://github.com/open-leash/plugins") return undefined;
+  return repositoryUrl;
 }
 
 function providerLabel(value: string) {

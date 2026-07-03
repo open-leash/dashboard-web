@@ -1065,7 +1065,31 @@ function pluginAuthor(plugin: PersonalPlugin) {
 }
 
 function pluginRepositoryUrl(plugin: PersonalPlugin) {
-  return plugin.repositoryUrl || plugin.marketplace?.repositoryUrl || "";
+  const firstPartyUrl = firstPartyPluginRepositoryUrl(plugin.id, plugin.slug || plugin.marketplace?.slug, plugin.publisher);
+  return firstPartyUrl || cleanPluginRepositoryUrl(plugin.repositoryUrl || plugin.marketplace?.repositoryUrl) || "";
+}
+
+const firstPartyPluginRepositories: Record<string, string> = {
+  "blast-radius": "https://github.com/open-leash/plugin-blast-radius",
+  "data-leakage-prevention": "https://github.com/open-leash/plugin-data-leakage-prevention",
+  "mcp-scanner": "https://github.com/open-leash/plugin-mcp-scanner",
+  "rules-enforcer": "https://github.com/open-leash/plugin-rules-enforcer",
+  "sensitive-access": "https://github.com/open-leash/plugin-sensitive-access",
+  "siem-exporter": "https://github.com/open-leash/plugin-siem-exporter",
+  "skill-scanner": "https://github.com/open-leash/plugin-skill-scanner",
+  "token-saver": "https://github.com/open-leash/plugin-token-saver"
+};
+
+function firstPartyPluginRepositoryUrl(id: string, slug?: string, publisher?: string) {
+  const normalizedSlug = slug || id.replace(/^openleash\./, "").replace("prompt-compression", "token-saver").replace("dlp", "data-leakage-prevention");
+  const isFirstParty = publisher === "openleash" || id.startsWith("openleash.");
+  return isFirstParty ? firstPartyPluginRepositories[normalizedSlug] : undefined;
+}
+
+function cleanPluginRepositoryUrl(repositoryUrl?: string) {
+  if (repositoryUrl === "https://github.com/open-leash/open-leash") return undefined;
+  if (repositoryUrl === "https://github.com/open-leash/plugins") return undefined;
+  return repositoryUrl;
 }
 
 function effectivePluginConfig(plugin: PersonalPlugin, draft?: Record<string, unknown>) {
