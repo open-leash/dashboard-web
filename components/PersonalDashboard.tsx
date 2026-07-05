@@ -81,6 +81,10 @@ type PersonalPlugin = {
   settings?: {
     enabled?: boolean;
     config?: Record<string, unknown>;
+    installedVersion?: string;
+    availableVersion?: string;
+    updateAvailable?: boolean;
+    updatePolicy?: "manual" | "patch" | "minor" | "locked";
   };
   organizationPolicy?: {
     mandatory?: boolean;
@@ -296,6 +300,26 @@ export function PersonalDashboard({ apiUrl, clientApiUrl }: { apiUrl: string; cl
     }
   }
 
+  async function updatePlugin(plugin: PersonalPlugin) {
+    const token = dashboardToken();
+    if (!token) return;
+    setBusy(`update:${plugin.id}`);
+    setMessage("");
+    try {
+      const response = await fetch(`${clientApiUrl}/v1/plugins/${encodeURIComponent(plugin.id)}/update`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, ...apiVersionHeaders("adminPluginsWrite") }
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || "Could not update plugin.");
+      setMessage(`${pluginPackageName(plugin)} updated.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not update plugin.");
+    } finally {
+      setBusy("");
+    }
+  }
+
   function updatePluginDraft(plugin: PersonalPlugin, key: string, value: unknown) {
     setPluginDraft((current) => ({
       ...current,
@@ -403,16 +427,17 @@ export function PersonalDashboard({ apiUrl, clientApiUrl }: { apiUrl: string; cl
               </div>
             </section> : null}
             {selectedPlugin ? (
-              <PluginDetail
-                plugin={selectedPlugin}
-                outcomes={outcomes.filter((outcome) => outcome.source?.pluginId === selectedPlugin.id)}
-                draft={pluginDraft[selectedPlugin.id]}
-                busy={busy}
-                message={message}
-                onDraftChange={updatePluginDraft}
-                onSave={savePluginSettings}
-                onInstallChange={setPluginInstalled}
-              />
+                <PluginDetail
+                  plugin={selectedPlugin}
+                  outcomes={outcomes.filter((outcome) => outcome.source?.pluginId === selectedPlugin.id)}
+                  draft={pluginDraft[selectedPlugin.id]}
+                  busy={busy}
+                  message={message}
+                  onDraftChange={updatePluginDraft}
+                  onSave={savePluginSettings}
+                  onUpdate={updatePlugin}
+                  onInstallChange={setPluginInstalled}
+                />
             ) : null}
             {installingPlugin ? (
               <PluginInstallDialog
@@ -771,6 +796,7 @@ function PluginDetail({
   message,
   onDraftChange,
   onSave,
+  onUpdate,
   onInstallChange
 }: {
   plugin: PersonalPlugin;
@@ -780,6 +806,7 @@ function PluginDetail({
   message: string;
   onDraftChange: (plugin: PersonalPlugin, key: string, value: unknown) => void;
   onSave: (plugin: PersonalPlugin) => void;
+  onUpdate: (plugin: PersonalPlugin) => void;
   onInstallChange: (plugin: PersonalPlugin, install: boolean) => void;
 }) {
   const installed = isPluginInstalled(plugin);
@@ -798,9 +825,16 @@ function PluginDetail({
           <h2>{pluginPackageName(plugin)}</h2>
           <p>{pluginDescription(plugin) || "OpenLeash plugin"}</p>
         </div>
-        <button type="button" disabled={mandatory || installBlocked || busy.endsWith(`:${plugin.id}`)} onClick={() => onInstallChange(plugin, !installed)}>
-          {busy.endsWith(`:${plugin.id}`) ? "Working" : mandatory ? "Required by org" : installBlocked ? "Blocked by org" : installed ? "Remove" : "Add"}
-        </button>
+        <div className="personalPluginActions">
+          {installed && plugin.settings?.updateAvailable ? (
+            <button type="button" disabled={busy.endsWith(`:${plugin.id}`)} onClick={() => onUpdate(plugin)}>
+              {busy === `update:${plugin.id}` ? "Updating" : "Update"}
+            </button>
+          ) : null}
+          <button type="button" disabled={mandatory || installBlocked || busy.endsWith(`:${plugin.id}`)} onClick={() => onInstallChange(plugin, !installed)}>
+            {busy.endsWith(`:${plugin.id}`) ? "Working" : mandatory ? "Required by org" : installBlocked ? "Blocked by org" : installed ? "Remove" : "Add"}
+          </button>
+        </div>
       </div>
       {message ? <p className="personalSyncMessage">{message}</p> : null}
       <div className="personalPluginMeta">
