@@ -101,7 +101,7 @@ export function DashboardAuthGate({
       }
       const slug = organization?.slug ?? readStoredOrganization()?.slug ?? organizationSlug;
       clearDashboardAuth();
-      window.location.href = `/${encodeURIComponent(slug)}/auth/login`;
+      redirectToLogin(requireAdmin, slug);
     }
   }), [apiUrl, organization, organizationSlug]);
 
@@ -162,16 +162,23 @@ function isDashboardRole(role: unknown) {
 }
 
 function redirectToTenantLogin(slug: string) {
-  const target = `${window.location.pathname}${window.location.search}`;
-  window.location.href = `/${encodeURIComponent(slug || "openleash")}/auth/login?redirect=${encodeURIComponent(target)}`;
+  redirectToMainWebWorkLogin(slug);
 }
 
 function redirectToLogin(requireAdmin: boolean, slug: string) {
   if (requireAdmin) {
-    redirectToTenantLogin(slug);
+    redirectToMainWebWorkLogin(slug);
     return;
   }
   window.location.href = `${mainWebUrl()}/account`;
+}
+
+function redirectToMainWebWorkLogin(slug: string) {
+  const target = `${window.location.pathname}${window.location.search}`;
+  const url = new URL("/account", mainWebUrl());
+  url.searchParams.set("audience", "organization");
+  url.searchParams.set("redirect", target || `/${slug || "openleash"}`);
+  window.location.href = url.toString();
 }
 
 function mainWebUrl() {
