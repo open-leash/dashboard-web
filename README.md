@@ -28,7 +28,7 @@ Teams use it to onboard, connect identity, manage users, configure policy, set B
 - Identity provider configuration
 - Users, roles, and deployment coverage
 - Policies and approval flows
-- Agents, MCP servers, skills, and external-agent observability
+- Agents, MCP servers, skills, and external-agent visibility
 - Audit trails for risky, approved, denied, and held actions
 - Provider/BYOK evaluation settings
 

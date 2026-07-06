@@ -65,6 +65,7 @@ type PersonalPlugin = {
   publisher?: string;
   author?: string;
   category?: string;
+  tags?: string[];
   repositoryUrl?: string;
   installed?: boolean;
   iconText?: string;
@@ -73,6 +74,7 @@ type PersonalPlugin = {
     slug?: string;
     shortDescription?: string;
     category?: string;
+    tags?: string[];
     developerName?: string;
     downloadCount?: number;
     iconText?: string;
@@ -684,7 +686,7 @@ function PluginMarketplacePanel({
         <input value={search} onChange={(event) => onSearch(event.currentTarget.value)} placeholder="Search by plugin, capability, or category..." />
       </label>
       <div className="personalMarketplaceControls">
-        {(["all", "cost", "security", "observability", "utility"] as const).map((item) => (
+        {(["all", "observability", "cost", "security", "utility"] as const).map((item) => (
           <button type="button" className={category === item ? `active ${item}` : item} key={item} onClick={() => onCategory(item)}>
             {item === "all" ? null : categoryIcon(item)}
             {item === "all" ? "All" : categoryLabel(item)}
@@ -1065,10 +1067,10 @@ function allPersonalPlugins(plugins: PersonalPlugin[], viewModel?: PersonalViewM
 function personalPluginCategories(viewModel: PersonalViewModel | null, plugins: PersonalPlugin[]) {
   const installedPlugins = allPersonalPlugins(plugins, viewModel).filter(isPluginInstalled);
   const base = [
+    { id: "observability", label: "Visibility", plugins: [] as PersonalPlugin[] },
     { id: "cost", label: "Cost", plugins: [] as PersonalPlugin[] },
     { id: "security", label: "Security", plugins: [] as PersonalPlugin[] },
-    { id: "observability", label: "Observability", plugins: [] as PersonalPlugin[] },
-    { id: "utility", label: "Utility", plugins: [] as PersonalPlugin[] }
+    { id: "utility", label: "Misc", plugins: [] as PersonalPlugin[] }
   ];
   for (const plugin of installedPlugins) {
     const category = base.find((item) => item.id === pluginCategory(plugin)) || base[3];
@@ -1157,9 +1159,11 @@ function pluginIconText(plugin: PersonalPlugin) {
 }
 
 function pluginCategory(plugin: PersonalPlugin) {
-  const text = String(plugin.category || plugin.marketplace?.category || `${plugin.id} ${pluginPackageName(plugin)} ${pluginDescription(plugin)}`).toLowerCase();
+  const text = String(plugin.category || plugin.marketplace?.category || `${plugin.id} ${pluginPackageName(plugin)} ${pluginDescription(plugin)} ${(plugin.marketplace?.tags || []).join(" ")} ${(plugin.tags || []).join(" ")}`).toLowerCase();
+  if (/siem-exporter/.test(text)) return "utility";
+  if (/mcp-scanner|skill-scanner/.test(text)) return "security";
   if (/security|policy|guard|skill|prompt-injection|risk|approval|dlp|leak|sensitive|secret|credential|rule/.test(text)) return "security";
-  if (/observability|observe|log|mcp|siem|audit|telemetry|monitor/.test(text)) return "observability";
+  if (/visibility|observability|observe|log|mcp|siem|audit|telemetry|monitor/.test(text)) return "observability";
   if (/cost|token|compression|usage|budget|spend/.test(text)) return "cost";
   return "utility";
 }
@@ -1167,8 +1171,8 @@ function pluginCategory(plugin: PersonalPlugin) {
 function categoryLabel(category: string) {
   if (category === "cost") return "Cost";
   if (category === "security") return "Security";
-  if (category === "observability") return "Observability";
-  return "Utility";
+  if (category === "observability") return "Visibility";
+  return "Misc";
 }
 
 function categoryIcon(category: string) {
