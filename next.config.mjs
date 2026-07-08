@@ -5,6 +5,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../
 
 const nextConfig = {
   typedRoutes: true,
+  output: "standalone",
   experimental: {
     devtoolSegmentExplorer: false
   },
