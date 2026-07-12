@@ -130,6 +130,7 @@ type Notifications = {
     project_path?: string | null;
     agent_name?: string | null;
     agent_kind?: string | null;
+    plugin_name?: string | null;
   }>;
   blockedEvents: Array<{
     id: string;
@@ -139,6 +140,7 @@ type Notifications = {
     agent_name?: string | null;
     agent_kind?: string | null;
     tool_name?: string | null;
+    plugin_name?: string | null;
   }>;
 };
 
@@ -550,6 +552,9 @@ function NotificationDock({ notifications }: { notifications: Notifications }) {
     <aside className="personalNotificationDock">
       <strong><BellRing size={15} /> Live OpenLeash</strong>
       <span>{count} active</span>
+      {[...notifications.pendingApprovals, ...notifications.blockedEvents].slice(0, 2).map((item) => (
+        <small key={item.id}>Plugin: {item.plugin_name || "OpenLeash core"}</small>
+      ))}
     </aside>
   );
 }

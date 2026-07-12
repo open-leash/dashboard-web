@@ -3489,7 +3489,7 @@ function outcomeSourceLabel(pluginId: string | undefined | null) {
   if (value === "openleash.dlp") return "Data Protection";
   if (value === "openleash.mcp-scanner") return "MCP and Tool Risk";
   if (value === "openleash.skill-scanner") return "Skill Review";
-  if (value === "openleash.prompt-compression") return "Token Savings";
+  if (value === "openleash.prompt-compression") return "token-saver";
   return pluginName(value);
 }
 
