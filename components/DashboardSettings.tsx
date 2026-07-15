@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ChevronRight, Github, KeyRound, PlugZap } from "lucide-react";
-import type { PluginCatalogItem } from "@openleash/shared";
+import type { PluginCatalogItem, PluginSettingProfile } from "@openleash/shared";
 import { DeploymentTokenIssuer } from "./DeploymentTokenIssuer";
 import { TokenIssuer } from "./TokenIssuer";
 import { IdentityProviderSetup, type OnboardingData } from "./EnterpriseOnboarding";
@@ -120,6 +120,7 @@ function PluginSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: string; org
         body: JSON.stringify({
           enabled: nextSettings.enabled,
           config: nextSettings.config,
+          profiles: nextSettings.profiles ?? [],
           orderingPriority: nextSettings.orderingPriority
         })
       });
@@ -323,12 +324,53 @@ function PluginSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: string; org
                 </label>
               </div>
               <PluginConfigFields plugin={plugin} saving={savingId === plugin.id} onChange={(config) => void savePlugin(plugin, { config })} />
+              <PluginProfileFields plugin={plugin} saving={savingId === plugin.id} onSave={(profiles) => void savePlugin(plugin, { profiles })} />
             </section>
             );
           })}
         </div>
       )}
     </section>
+  );
+}
+
+function PluginProfileFields({
+  plugin,
+  saving,
+  onSave
+}: {
+  plugin: PluginCatalogItem;
+  saving: boolean;
+  onSave: (profiles: PluginSettingProfile[]) => void;
+}) {
+  const [draft, setDraft] = useState(() => JSON.stringify(plugin.settings.profiles ?? [], null, 2));
+  const [error, setError] = useState("");
+  useEffect(() => setDraft(JSON.stringify(plugin.settings.profiles ?? [], null, 2)), [plugin.settings.profiles]);
+  function save() {
+    try {
+      const parsed = JSON.parse(draft);
+      if (!Array.isArray(parsed)) throw new Error("Profiles must be a JSON array.");
+      setError("");
+      onSave(parsed as PluginSettingProfile[]);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Invalid profile JSON.");
+    }
+  }
+  return (
+    <div className="transformFields">
+      <label>Agent-specific profiles
+        <textarea
+          rows={8}
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          disabled={saving}
+          placeholder='[{"id":"codex","name":"Codex","agentKinds":["codex"],"config":{"level":"aggressive"}}]'
+        />
+        <small>Match agentKinds and optional agentIds. Profiles merge by priority and are sent in each signed plugin request.</small>
+        {error ? <small>{error}</small> : null}
+      </label>
+      <button type="button" onClick={save} disabled={saving}>Save agent profiles</button>
+    </div>
   );
 }
 
