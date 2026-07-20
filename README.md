@@ -28,6 +28,7 @@ Teams use it to onboard, connect identity, manage users, configure policy, set B
 - Identity provider configuration
 - Users, roles, and deployment coverage
 - Policies and approval flows
+- Plugin requirements, defaults, employee installation freedom, configuration locks, and organization/per-agent profiles
 - Agents, MCP servers, skills, and external-agent visibility
 - Audit trails for risky, approved, denied, and held actions
 - Provider/BYOK evaluation settings
@@ -64,6 +65,12 @@ Choose **Private Cloud** or **OpenLeash Cloud**.
 | 🏢 Private Cloud | Runs directly for one customer tenant. |
 | ☁️ OpenLeash Cloud | Composed by `cloud-dashboard-web`. |
 | 🧪 Local dev | Talks to `dashboard-api` on `localhost:9319`. |
+
+---
+
+## 🧩 Plugin administration
+
+The dashboard renders backend-owned plugin manifests and settings schemas. Admins can independently choose whether a plugin is mandatory, enabled by default, installable by employees, and configurable by employees. Organization settings and profiles can target all agents, an agent kind, or an exact enrolled runtime. Employees see clear required, blocked, unlocked, and locked states; a mandatory plugin may still be customizable when the admin allows it.
 
 ---
 
