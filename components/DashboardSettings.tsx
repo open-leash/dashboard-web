@@ -14,6 +14,14 @@ import { apiFetch } from "../lib/api-client";
 
 export type SettingsItem = "organization" | "identity" | "roles" | "tokens" | "providers" | "plugins" | "deploy";
 
+const pluginAgentKinds = [
+  "claude-code", "codex", "cursor", "github-copilot", "gemini", "opencode", "cline",
+  "continue", "windsurf", "kiro", "aider", "zed", "openclaw", "nanoclaw",
+  "salesforce-agentforce", "azure-ai-foundry", "microsoft-copilot-studio",
+  "aws-bedrock-agentcore", "google-vertex-ai", "n8n", "zapier-agents",
+  "openai-codex-cloud", "unknown"
+] as const;
+
 export function SettingsTree({ basePath, initialItem }: { basePath: string; initialItem?: string }) {
   const activeItem = useActiveSettingsItem(initialItem);
   const settingsPath = `${basePath}/settings`;
@@ -71,6 +79,7 @@ export function DashboardSettingsPane({
 
 function PluginSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: string; organizationSlug?: string }) {
   const [plugins, setPlugins] = useState<PluginCatalogItem[]>([]);
+  const [agents, setAgents] = useState<Array<{ id: string; kind: string; display_name?: string; hostname?: string; user_name?: string }>>([]);
   const [marketplacePolicy, setMarketplacePolicy] = useState({
     allowUserMarketplaceInstalls: true,
     allowUserCommunityPlugins: true
@@ -85,12 +94,19 @@ function PluginSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: string; org
     async function load() {
       setLoading(true);
       try {
-        const response = await apiFetch(`${apiUrl}/admin/plugins${query}`, "adminPluginsRead");
-        const body = await response.json().catch(() => ({}));
+        const [response, overviewResponse] = await Promise.all([
+          apiFetch(`${apiUrl}/admin/plugins${query}`, "adminPluginsRead"),
+          apiFetch(`${apiUrl}/admin/overview${query}`, "adminOverview")
+        ]);
+        const [body, overviewBody] = await Promise.all([
+          response.json().catch(() => ({})),
+          overviewResponse.json().catch(() => ({}))
+        ]);
         if (alive && response.ok) {
           setPlugins(Array.isArray(body.plugins) ? body.plugins : []);
           if (body.marketplacePolicy) setMarketplacePolicy(body.marketplacePolicy);
         }
+        if (alive && overviewResponse.ok) setAgents(Array.isArray(overviewBody.agents) ? overviewBody.agents : []);
         if (alive && !response.ok) setMessage(body.error || "Could not load plugins.");
       } catch (error) {
         if (alive) setMessage(error instanceof Error ? error.message : "Could not load plugins.");
@@ -172,8 +188,6 @@ function PluginSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: string; org
       ...patch
     };
     if (nextPolicy.mandatory) nextPolicy.defaultEnabled = true;
-    if (nextPolicy.mandatory) nextPolicy.userInstallAllowed = false;
-    if (nextPolicy.mandatory) nextPolicy.configLocked = true;
     setPlugins((items) => items.map((item) => item.id === plugin.id ? {
       ...item,
       organizationPolicy: nextPolicy,
@@ -252,6 +266,7 @@ function PluginSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: string; org
                   <h2>{plugin.name}</h2>
                   <p>{plugin.marketplace?.shortDescription ?? plugin.description}</p>
                   <p className="setupCopy compact">By {plugin.marketplace?.developerName ?? plugin.publisher} · {plugin.slug ?? plugin.id}</p>
+                  {plugin.settings.runtimeError ? <p className="setupCopy compact">{plugin.settings.runtimeError}</p> : null}
                   {repositoryUrl ? (
                     <a className="setupCopy compact pluginRepoTextLink" href={repositoryUrl} target="_blank" rel="noreferrer">
                       <Github size={14} /> GitHub repo
@@ -265,7 +280,7 @@ function PluginSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: string; org
                   <select
                     value={plugin.settings.enabled ? "enabled" : "disabled"}
                     onChange={(event) => void savePlugin(plugin, { enabled: event.target.value === "enabled" })}
-                    disabled={savingId === plugin.id || plugin.organizationPolicy?.mandatory}
+                    disabled={savingId === plugin.id || plugin.organizationPolicy?.mandatory || plugin.settings.runtimeAvailable === false}
                   >
                     <option value="enabled">Enabled</option>
                     <option value="disabled">Disabled</option>
@@ -295,7 +310,7 @@ function PluginSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: string; org
                   <select
                     value={plugin.organizationPolicy?.userInstallAllowed === false ? "blocked" : "allowed"}
                     onChange={(event) => void savePluginPolicy(plugin, { userInstallAllowed: event.target.value === "allowed" })}
-                    disabled={savingId === `${plugin.id}:policy` || plugin.organizationPolicy?.mandatory}
+                    disabled={savingId === `${plugin.id}:policy`}
                   >
                     <option value="allowed">Users can add/remove</option>
                     <option value="blocked">Admins only</option>
@@ -303,12 +318,12 @@ function PluginSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: string; org
                 </label>
                 <label>Plugin settings
                   <select
-                    value={plugin.organizationPolicy?.mandatory || plugin.organizationPolicy?.configLocked ? "locked" : "custom"}
+                    value={plugin.organizationPolicy?.configLocked ? "locked" : "custom"}
                     onChange={(event) => void savePluginPolicy(plugin, { configLocked: event.target.value === "locked" })}
-                    disabled={savingId === `${plugin.id}:policy` || plugin.organizationPolicy?.mandatory}
+                    disabled={savingId === `${plugin.id}:policy`}
                   >
-                    <option value="custom">Users can customize</option>
-                    <option value="locked">Use org settings</option>
+                    <option value="custom">Employees can customize</option>
+                    <option value="locked">Locked to org settings</option>
                   </select>
                 </label>
                 <label>Order priority
@@ -324,7 +339,7 @@ function PluginSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: string; org
                 </label>
               </div>
               <PluginConfigFields plugin={plugin} saving={savingId === plugin.id} onChange={(config) => void savePlugin(plugin, { config })} />
-              <PluginProfileFields plugin={plugin} saving={savingId === plugin.id} onSave={(profiles) => void savePlugin(plugin, { profiles })} />
+              <PluginProfileFields plugin={plugin} agents={agents} saving={savingId === plugin.id} onSave={(profiles) => void savePlugin(plugin, { profiles })} />
             </section>
             );
           })}
@@ -336,40 +351,121 @@ function PluginSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: string; org
 
 function PluginProfileFields({
   plugin,
+  agents,
   saving,
   onSave
 }: {
   plugin: PluginCatalogItem;
+  agents: Array<{ id: string; kind: string; display_name?: string; hostname?: string; user_name?: string }>;
   saving: boolean;
   onSave: (profiles: PluginSettingProfile[]) => void;
 }) {
-  const [draft, setDraft] = useState(() => JSON.stringify(plugin.settings.profiles ?? [], null, 2));
+  type ProfileDraft = PluginSettingProfile & { configText: string };
+  const makeDrafts = (profiles: PluginSettingProfile[]): ProfileDraft[] => profiles.map((profile) => ({
+    ...profile,
+    configText: JSON.stringify(profile.config ?? {}, null, 2)
+  }));
+  const [drafts, setDrafts] = useState<ProfileDraft[]>(() => makeDrafts(plugin.settings.profiles ?? []));
   const [error, setError] = useState("");
-  useEffect(() => setDraft(JSON.stringify(plugin.settings.profiles ?? [], null, 2)), [plugin.settings.profiles]);
+  useEffect(() => setDrafts(makeDrafts(plugin.settings.profiles ?? [])), [plugin.settings.profiles]);
+  function update(id: string, patch: Partial<ProfileDraft>) {
+    setDrafts((current) => current.map((profile) => profile.id === id ? { ...profile, ...patch } : profile));
+  }
   function save() {
     try {
-      const parsed = JSON.parse(draft);
-      if (!Array.isArray(parsed)) throw new Error("Profiles must be a JSON array.");
+      const profiles = drafts.map(({ configText, ...profile }, index) => {
+        const config = JSON.parse(configText || "{}");
+        if (!config || typeof config !== "object" || Array.isArray(config)) {
+          throw new Error(`Profile ${index + 1} settings must be a JSON object.`);
+        }
+        return { ...profile, config };
+      });
       setError("");
-      onSave(parsed as PluginSettingProfile[]);
+      onSave(profiles);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Invalid profile JSON.");
+      setError(cause instanceof Error ? cause.message : "Invalid profile settings.");
     }
   }
   return (
-    <div className="transformFields">
-      <label>Agent-specific profiles
-        <textarea
-          rows={8}
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
+    <div className="transformFields pluginProfileEditor">
+      <div className="transformPanelHead">
+        <div>
+          <strong>Agent-specific organization settings</strong>
+          <p className="setupCopy compact">Apply an override to every matching employee agent, or select exact enrolled agents. Lower priorities merge first.</p>
+        </div>
+        <button
+          className="pluginProfileAdd"
+          type="button"
           disabled={saving}
-          placeholder='[{"id":"codex","name":"Codex","agentKinds":["codex"],"config":{"level":"aggressive"}}]'
-        />
-        <small>Match agentKinds and optional agentIds. Profiles merge by priority and are sent in each signed plugin request.</small>
-        {error ? <small>{error}</small> : null}
-      </label>
-      <button type="button" onClick={save} disabled={saving}>Save agent profiles</button>
+          onClick={() => setDrafts((current) => [...current, {
+            id: `profile-${Date.now()}`,
+            name: "Agent override",
+            agentKinds: [],
+            config: {},
+            configText: "{}",
+            priority: 0
+          }])}
+        >Add profile</button>
+      </div>
+      {drafts.map((profile) => (
+        <section className="transformPanel pluginProfileCard" key={profile.id}>
+          <div className="transformFields">
+            <label>Profile name
+              <input value={profile.name} disabled={saving} onChange={(event) => update(profile.id, { name: event.target.value })} />
+            </label>
+            <label>Priority
+              <input type="number" value={profile.priority ?? 0} disabled={saving} onChange={(event) => update(profile.id, { priority: Number(event.target.value || 0) })} />
+            </label>
+            <label>Enabled for matches
+              <select
+                value={typeof profile.enabled === "boolean" ? String(profile.enabled) : "inherit"}
+                disabled={saving}
+                onChange={(event) => update(profile.id, event.target.value === "inherit" ? { enabled: undefined } : { enabled: event.target.value === "true" })}
+              >
+                <option value="inherit">Use organization default</option>
+                <option value="true">Enabled</option>
+                <option value="false">Disabled</option>
+              </select>
+            </label>
+            <label>Agent types
+              <select
+                multiple
+                size={5}
+                value={profile.agentKinds}
+                disabled={saving}
+                onChange={(event) => update(profile.id, { agentKinds: [...event.currentTarget.selectedOptions].map((option) => option.value as PluginSettingProfile["agentKinds"][number]) })}
+              >
+                {[...new Set([...pluginAgentKinds, ...agents.map((agent) => agent.kind)])].sort().map((kind) => <option key={kind} value={kind}>{kind}</option>)}
+              </select>
+              <small>No selection means every agent type.</small>
+            </label>
+            <label>Exact enrolled agents
+              <select
+                multiple
+                size={5}
+                value={profile.agentIds ?? []}
+                disabled={saving}
+                onChange={(event) => update(profile.id, { agentIds: [...event.currentTarget.selectedOptions].map((option) => option.value) })}
+              >
+                {agents.map((agent) => (
+                  <option key={agent.id} value={agent.id}>
+                    {[agent.user_name, agent.display_name || agent.kind, agent.hostname].filter(Boolean).join(" · ")}
+                  </option>
+                ))}
+              </select>
+              <small>No selection means every matching enrolled agent.</small>
+            </label>
+            <label>Setting overrides
+              <textarea rows={6} value={profile.configText} disabled={saving} onChange={(event) => update(profile.id, { configText: event.target.value })} />
+              <small>Only include settings this profile should override.</small>
+            </label>
+          </div>
+          <button className="pluginProfileRemove" type="button" disabled={saving} onClick={() => setDrafts((current) => current.filter((item) => item.id !== profile.id))}>Remove profile</button>
+        </section>
+      ))}
+      {drafts.length === 0 ? <p className="setupCopy compact">No agent-specific organization profiles. The base settings apply to every employee.</p> : null}
+      {error ? <small>{error}</small> : null}
+      <button className="pluginProfileSave" type="button" onClick={save} disabled={saving}>Save agent profiles</button>
     </div>
   );
 }

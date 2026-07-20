@@ -87,6 +87,10 @@ type PersonalPlugin = {
     availableVersion?: string;
     updateAvailable?: boolean;
     updatePolicy?: "manual" | "patch" | "minor" | "locked";
+    profiles?: PersonalPluginProfile[];
+    inheritedProfiles?: PersonalPluginProfile[];
+    runtimeAvailable?: boolean;
+    runtimeError?: string;
   };
   organizationPolicy?: {
     mandatory?: boolean;
@@ -96,6 +100,16 @@ type PersonalPlugin = {
   configSchema?: { properties?: Record<string, Record<string, unknown>> };
   defaultConfig?: Record<string, unknown>;
   outcomeCount?: number;
+};
+
+type PersonalPluginProfile = {
+  id: string;
+  name: string;
+  agentKinds: string[];
+  agentIds?: string[];
+  enabled?: boolean;
+  config: Record<string, unknown>;
+  priority?: number;
 };
 
 type PersonalAgent = {
@@ -146,7 +160,23 @@ type Notifications = {
 
 type PersonalView = "overview" | "agents" | "plugins" | "usage" | "history" | "settings";
 
-export function PersonalDashboard({ apiUrl, clientApiUrl }: { apiUrl: string; clientApiUrl: string }) {
+const personalPluginAgentKinds = [
+  "claude-code", "codex", "cursor", "github-copilot", "gemini", "opencode", "cline",
+  "continue", "windsurf", "kiro", "aider", "zed", "openclaw", "nanoclaw",
+  "salesforce-agentforce", "azure-ai-foundry", "microsoft-copilot-studio",
+  "aws-bedrock-agentcore", "google-vertex-ai", "n8n", "zapier-agents",
+  "openai-codex-cloud", "unknown"
+];
+
+export function PersonalDashboard({
+  apiUrl,
+  clientApiUrl,
+  deploymentMode = "cloud"
+}: {
+  apiUrl: string;
+  clientApiUrl: string;
+  deploymentMode?: "cloud" | "private";
+}) {
   const [view, setView] = useState<PersonalView>("overview");
   const [selectedCategory, setSelectedCategory] = useState("cost");
   const [selectedPluginId, setSelectedPluginId] = useState("");
@@ -275,7 +305,7 @@ export function PersonalDashboard({ apiUrl, clientApiUrl }: { apiUrl: string; cl
     }
   }
 
-  async function savePluginSettings(plugin: PersonalPlugin) {
+  async function savePluginSettings(plugin: PersonalPlugin, profiles?: PersonalPluginProfile[]) {
     const token = dashboardToken();
     if (!token) return;
     setBusy(`settings:${plugin.id}`);
@@ -286,7 +316,8 @@ export function PersonalDashboard({ apiUrl, clientApiUrl }: { apiUrl: string; cl
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...apiVersionHeaders("adminPluginsWrite") },
         body: JSON.stringify({
           enabled: isPluginInstalled(plugin),
-          config: effectivePluginConfig(plugin, pluginDraft[plugin.id])
+          config: effectivePluginConfig(plugin, pluginDraft[plugin.id]),
+          ...(profiles ? { profiles } : {})
         })
       });
       const body = await response.json().catch(() => ({}));
@@ -379,7 +410,7 @@ export function PersonalDashboard({ apiUrl, clientApiUrl }: { apiUrl: string; cl
         }}
       />
       <main className="personalClientMain">
-        <PersonalTopbar />
+        <PersonalTopbar deploymentMode={deploymentMode} />
         <NotificationDock notifications={notifications} />
         {view === "overview" || view === "agents" ? (
           <PersonalOverview
@@ -433,6 +464,7 @@ export function PersonalDashboard({ apiUrl, clientApiUrl }: { apiUrl: string; cl
             {selectedPlugin ? (
                 <PluginDetail
                   plugin={selectedPlugin}
+                  agents={agents}
                   outcomes={outcomes.filter((outcome) => outcome.source?.pluginId === selectedPlugin.id)}
                   draft={pluginDraft[selectedPlugin.id]}
                   busy={busy}
@@ -536,10 +568,10 @@ function PersonalNavButton({ active, icon, label, badge, tone, onClick }: { acti
   );
 }
 
-function PersonalTopbar() {
+function PersonalTopbar({ deploymentMode }: { deploymentMode: "cloud" | "private" }) {
   return (
     <div className="personalTopbar">
-      <span>OpenLeash Cloud</span>
+      <span>{deploymentMode === "private" ? "Private Cloud" : "OpenLeash Cloud"}</span>
       <DashboardSignOutIconButton />
     </div>
   );
@@ -667,6 +699,7 @@ function PluginMarketplacePanel({
     utility: plugins.filter((plugin) => pluginCategory(plugin) === "utility").length
   };
   const query = search.trim().toLowerCase();
+  const organizationControlsInstalls = plugins.length > 0 && plugins.every((plugin) => plugin.organizationPolicy?.userInstallAllowed === false);
   const filtered = plugins
     .filter((plugin) => category === "all" || pluginCategory(plugin) === category)
     .filter((plugin) => {
@@ -686,6 +719,12 @@ function PluginMarketplacePanel({
           <p>Search reviewed plugins and add them to your OpenLeash pipeline.</p>
         </div>
       </div>
+      {organizationControlsInstalls ? (
+        <div className="personalMarketplacePolicyNotice">
+          <Shield size={17} />
+          <span>Your organization manages plugin installs. You can still browse the catalog.</span>
+        </div>
+      ) : null}
       <label className="personalMarketplaceSearch">
         <Search size={18} />
         <input value={search} onChange={(event) => onSearch(event.currentTarget.value)} placeholder="Search by plugin, capability, or category..." />
@@ -721,7 +760,20 @@ function PluginMarketplacePanel({
               <p>{pluginDescription(plugin)}</p>
               <div className="personalMarketplaceCardBottom">
                 <span>{pluginAuthor(plugin)}</span>
-                <button type="button" onClick={() => onInstall(plugin)}>Install</button>
+                <button
+                  type="button"
+                  onClick={() => onInstall(plugin)}
+                  disabled={plugin.organizationPolicy?.userInstallAllowed === false || plugin.settings?.runtimeAvailable === false}
+                  title={plugin.organizationPolicy?.userInstallAllowed === false
+                    ? "Plugin installs are managed by your organization."
+                    : plugin.settings?.runtimeError}
+                >
+                  {plugin.organizationPolicy?.userInstallAllowed === false
+                    ? "Admin only"
+                    : plugin.settings?.runtimeAvailable === false
+                      ? "Unavailable"
+                      : "Install"}
+                </button>
               </div>
             </article>
           ))}
@@ -797,6 +849,7 @@ function PluginInstallDialog({
 
 function PluginDetail({
   plugin,
+  agents,
   outcomes,
   draft,
   busy,
@@ -807,19 +860,21 @@ function PluginDetail({
   onInstallChange
 }: {
   plugin: PersonalPlugin;
+  agents: PersonalAgent[];
   outcomes: PersonalOutcome[];
   draft?: Record<string, unknown>;
   busy: string;
   message: string;
   onDraftChange: (plugin: PersonalPlugin, key: string, value: unknown) => void;
-  onSave: (plugin: PersonalPlugin) => void;
+  onSave: (plugin: PersonalPlugin, profiles?: PersonalPluginProfile[]) => void;
   onUpdate: (plugin: PersonalPlugin) => void;
   onInstallChange: (plugin: PersonalPlugin, install: boolean) => void;
 }) {
   const installed = isPluginInstalled(plugin);
   const mandatory = Boolean(plugin.organizationPolicy?.mandatory);
   const installBlocked = plugin.organizationPolicy?.userInstallAllowed === false && !installed;
-  const locked = mandatory || Boolean(plugin.organizationPolicy?.configLocked);
+  const runtimeBlocked = plugin.settings?.runtimeAvailable === false;
+  const locked = Boolean(plugin.organizationPolicy?.configLocked);
   const config = effectivePluginConfig(plugin, draft);
   const settings = pluginSettingDefinitions(plugin, config);
   const [activeTab, setActiveTab] = useState<"insights" | "outcomes" | "settings">("insights");
@@ -838,12 +893,13 @@ function PluginDetail({
               {busy === `update:${plugin.id}` ? "Updating" : "Update"}
             </button>
           ) : null}
-          <button type="button" disabled={mandatory || installBlocked || busy.endsWith(`:${plugin.id}`)} onClick={() => onInstallChange(plugin, !installed)}>
-            {busy.endsWith(`:${plugin.id}`) ? "Working" : mandatory ? "Required by org" : installBlocked ? "Blocked by org" : installed ? "Remove" : "Add"}
+          <button type="button" disabled={mandatory || installBlocked || runtimeBlocked || busy.endsWith(`:${plugin.id}`)} onClick={() => onInstallChange(plugin, !installed)}>
+            {busy.endsWith(`:${plugin.id}`) ? "Working" : runtimeBlocked ? "Unavailable here" : mandatory ? "Required by org" : installBlocked ? "Blocked by org" : installed ? "Remove" : "Add"}
           </button>
         </div>
       </div>
       {message ? <p className="personalSyncMessage">{message}</p> : null}
+      {plugin.settings?.runtimeError ? <p className="personalSyncMessage">{plugin.settings.runtimeError}</p> : null}
       <div className="personalPluginMeta">
         <span><User size={14} /> {plugin.author || plugin.marketplace?.developerName || plugin.publisher || "OpenLeash"}</span>
         {repositoryUrl ? <a href={repositoryUrl} target="_blank" rel="noreferrer"><Github size={14} /> GitHub repo</a> : null}
@@ -938,6 +994,13 @@ function PluginDetail({
               />
             )) : <p className="personalEmpty">No configurable settings exposed.</p>}
           </div>
+          <PersonalPluginProfiles
+            plugin={plugin}
+            agents={agents}
+            locked={locked || !installed}
+            busy={busy === `settings:${plugin.id}`}
+            onSave={(profiles) => onSave(plugin, profiles)}
+          />
           <div className="personalPluginActions">
             <span />
             <button type="button" disabled={locked || !installed || busy === `settings:${plugin.id}`} onClick={() => onSave(plugin)}>
@@ -948,6 +1011,98 @@ function PluginDetail({
         ) : null}
       </div>
     </section>
+  );
+}
+
+function PersonalPluginProfiles({
+  plugin,
+  agents,
+  locked,
+  busy,
+  onSave
+}: {
+  plugin: PersonalPlugin;
+  agents: PersonalAgent[];
+  locked: boolean;
+  busy: boolean;
+  onSave: (profiles: PersonalPluginProfile[]) => void;
+}) {
+  type Draft = PersonalPluginProfile & { configText: string };
+  const toDrafts = (profiles: PersonalPluginProfile[]): Draft[] => profiles.map((profile) => ({
+    ...profile,
+    configText: JSON.stringify(profile.config ?? {}, null, 2)
+  }));
+  const [profiles, setProfiles] = useState<Draft[]>(() => toDrafts(plugin.settings?.profiles ?? []));
+  const [error, setError] = useState("");
+  useEffect(() => setProfiles(toDrafts(plugin.settings?.profiles ?? [])), [plugin.id, plugin.settings?.profiles]);
+  const update = (id: string, patch: Partial<Draft>) => setProfiles((current) => current.map((profile) => profile.id === id ? { ...profile, ...patch } : profile));
+  function save() {
+    try {
+      const normalized = profiles.map(({ configText, ...profile }, index) => {
+        const config = JSON.parse(configText || "{}");
+        if (!config || typeof config !== "object" || Array.isArray(config)) throw new Error(`Profile ${index + 1} settings must be an object.`);
+        return { ...profile, config };
+      });
+      setError("");
+      onSave(normalized);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Invalid agent profile settings.");
+    }
+  }
+  return (
+    <div className="personalPluginProfiles">
+      <div className="personalSectionHead">
+        <div>
+          <strong>Agent-specific settings</strong>
+          <p>Override this plugin for all your agents of a type or select an exact enrolled agent.</p>
+        </div>
+        <button
+          type="button"
+          disabled={locked || busy}
+          onClick={() => setProfiles((current) => [...current, {
+            id: `profile-${Date.now()}`,
+            name: "Agent override",
+            agentKinds: [],
+            config: {},
+            configText: "{}",
+            priority: 0
+          }])}
+        >Add profile</button>
+      </div>
+      {(plugin.settings?.inheritedProfiles?.length ?? 0) > 0 ? (
+        <p className="personalEmpty">Your organization applies {plugin.settings!.inheritedProfiles!.length} profile{plugin.settings!.inheritedProfiles!.length === 1 ? "" : "s"} first.</p>
+      ) : null}
+      {profiles.map((profile) => (
+        <article className="personalPluginProfile" key={profile.id}>
+          <label>Profile name<input disabled={locked || busy} value={profile.name} onChange={(event) => update(profile.id, { name: event.target.value })} /></label>
+          <label>Agent types
+            <select multiple size={4} disabled={locked || busy} value={profile.agentKinds} onChange={(event) => update(profile.id, { agentKinds: [...event.currentTarget.selectedOptions].map((option) => option.value) })}>
+              {[...new Set([...personalPluginAgentKinds, ...agents.map((agent) => agent.kind).filter((kind): kind is string => Boolean(kind))])].sort().map((kind) => <option key={kind} value={kind}>{kind}</option>)}
+            </select>
+            <small>No selection means all agent types.</small>
+          </label>
+          <label>Exact agents
+            <select multiple size={4} disabled={locked || busy} value={profile.agentIds ?? []} onChange={(event) => update(profile.id, { agentIds: [...event.currentTarget.selectedOptions].map((option) => option.value) })}>
+              {agents.filter((agent) => agent.id).map((agent) => <option key={agent.id} value={agent.id}>{[agent.displayName || agent.display_name || agent.kind, agent.hostname].filter(Boolean).join(" · ")}</option>)}
+            </select>
+            <small>No selection means every matching agent.</small>
+          </label>
+          <label>Enabled override
+            <select disabled={locked || busy || plugin.organizationPolicy?.mandatory} value={plugin.organizationPolicy?.mandatory ? "inherit" : typeof profile.enabled === "boolean" ? String(profile.enabled) : "inherit"} onChange={(event) => update(profile.id, event.target.value === "inherit" ? { enabled: undefined } : { enabled: event.target.value === "true" })}>
+              <option value="inherit">{plugin.organizationPolicy?.mandatory ? "Required by organization" : "Use base setting"}</option>
+              <option value="true">Enabled</option>
+              <option value="false">Disabled</option>
+            </select>
+          </label>
+          <label>Priority<input type="number" disabled={locked || busy} value={profile.priority ?? 0} onChange={(event) => update(profile.id, { priority: Number(event.target.value || 0) })} /></label>
+          <label>Setting overrides<textarea rows={5} disabled={locked || busy} value={profile.configText} onChange={(event) => update(profile.id, { configText: event.target.value })} /></label>
+          <button type="button" disabled={locked || busy} onClick={() => setProfiles((current) => current.filter((item) => item.id !== profile.id))}>Remove</button>
+        </article>
+      ))}
+      {profiles.length === 0 ? <p className="personalEmpty">No personal agent-specific overrides.</p> : null}
+      {error ? <p className="personalSyncMessage">{error}</p> : null}
+      <button type="button" disabled={locked || busy} onClick={save}>{busy ? "Saving" : "Save agent profiles"}</button>
+    </div>
   );
 }
 
@@ -1085,10 +1240,16 @@ function personalPluginCategories(viewModel: PersonalViewModel | null, plugins: 
 }
 
 function isPluginInstalled(plugin: PersonalPlugin) {
-  return plugin.organizationPolicy?.mandatory === true || plugin.installed === true || plugin.settings?.enabled === true;
+  return plugin.organizationPolicy?.mandatory === true ||
+    plugin.installed === true ||
+    plugin.settings?.enabled === true ||
+    Boolean(plugin.settings?.installedVersion) ||
+    [...(plugin.settings?.inheritedProfiles ?? []), ...(plugin.settings?.profiles ?? [])]
+      .some((profile) => profile.enabled === true);
 }
 
 function pluginStatusLabel(plugin: PersonalPlugin) {
+  if (plugin.settings?.runtimeAvailable === false) return "unavailable";
   if (plugin.organizationPolicy?.mandatory) return "required";
   return isPluginInstalled(plugin) ? "installed" : "available";
 }

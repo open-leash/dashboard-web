@@ -611,6 +611,20 @@ a { color: inherit; text-decoration: none; }
   line-height: 1.45;
 }
 
+.personalMarketplacePolicyNotice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  padding: 10px 14px;
+  border: 1px solid #ded8ce;
+  border-radius: 12px;
+  background: #f7f4ee;
+  color: #5f5b53;
+  font-size: 14px;
+  font-weight: 800;
+}
+
 .personalMarketplaceSearch {
   display: flex;
   align-items: center;
@@ -773,6 +787,12 @@ a { color: inherit; text-decoration: none; }
   color: #fff;
   background: #11110f;
   font-weight: 900;
+}
+
+.personalMarketplaceCardBottom button:disabled {
+  cursor: not-allowed;
+  color: #77736a;
+  background: #e6e1d8;
 }
 
 .personalMarketplaceEmpty {
@@ -987,6 +1007,54 @@ a { color: inherit; text-decoration: none; }
 .personalSettingsFields {
   display: grid;
   gap: 14px;
+}
+
+.personalPluginProfiles {
+  display: grid;
+  gap: 14px;
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid #e7e1d8;
+}
+
+.personalPluginProfile {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #e7e1d8;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.personalPluginProfile label {
+  display: grid;
+  gap: 7px;
+  color: #4f4b43;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.personalPluginProfile input,
+.personalPluginProfile select,
+.personalPluginProfile textarea {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid #ded8ce;
+  border-radius: 8px;
+  background: #fff;
+  color: #11110f;
+}
+
+.personalPluginProfile textarea,
+.personalPluginProfile label:nth-last-of-type(1) {
+  grid-column: 1 / -1;
+}
+
+.personalPluginProfile small {
+  color: #817c72;
+  font-weight: 650;
 }
 
 .personalSettingField,
@@ -2463,7 +2531,8 @@ a { color: inherit; text-decoration: none; }
 }
 
 .transformFields input,
-.transformFields select {
+.transformFields select,
+.transformFields textarea {
   width: 100%;
   min-height: 44px;
   padding: 10px 12px;
@@ -2475,6 +2544,75 @@ a { color: inherit; text-decoration: none; }
   font-size: 14px;
   font-weight: 700;
   text-transform: none;
+}
+
+.pluginProfileEditor {
+  grid-template-columns: minmax(0, 1fr);
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+
+.pluginProfileEditor > .transformPanelHead {
+  align-items: center;
+}
+
+.pluginProfileEditor > .transformPanelHead > div {
+  min-width: 0;
+}
+
+.pluginProfileEditor > .transformPanelHead p {
+  max-width: 650px;
+}
+
+.pluginProfileCard {
+  gap: 16px;
+  background: white;
+  border-radius: 14px;
+}
+
+.pluginProfileCard .transformFields {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.pluginProfileCard select[multiple],
+.pluginProfileCard textarea {
+  min-height: 132px;
+  resize: vertical;
+}
+
+.pluginProfileCard small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.35;
+  text-transform: none;
+}
+
+.pluginProfileAdd,
+.pluginProfileRemove,
+.pluginProfileSave {
+  min-height: 40px;
+  padding: 10px 15px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.pluginProfileAdd,
+.pluginProfileRemove {
+  color: var(--ink);
+  background: white;
+}
+
+.pluginProfileRemove {
+  justify-self: end;
+}
+
+.pluginProfileSave {
+  justify-self: end;
+  color: white;
+  background: var(--ink);
 }
 
 .transformCheck {
@@ -6012,6 +6150,7 @@ input:focus, textarea:focus, select:focus {
   .modelUsageCharts,
   .modelUsageStats { grid-template-columns: 1fr; }
   .modelInspector { border-left: 0; border-top: 1px solid rgba(15, 17, 21, .08); }
+  .pluginProfileCard .transformFields { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 640px) {
@@ -6036,6 +6175,8 @@ input:focus, textarea:focus, select:focus {
   .nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stat-row, .cards, .identityGrid, .userDetailGrid, .overviewLeaderGrid, .agentActivityGrid { grid-template-columns: 1fr; }
   .triggerFilters, .metaGrid, .mdmGrid, .fieldGrid, .rosterToolbar { grid-template-columns: 1fr; }
+  .personalPluginProfile { grid-template-columns: 1fr; }
+  .pluginProfileEditor > .transformPanelHead { align-items: flex-start; flex-direction: column; }
   .deployHero { flex-direction: column; }
   .card-title, .card-title .right, .row-card { align-items: flex-start; flex-direction: column; }
   .blocked-count { width: auto; text-align: left; }

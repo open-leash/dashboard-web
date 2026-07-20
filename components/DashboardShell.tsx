@@ -914,7 +914,7 @@ export function DashboardShell({
   const activeExtension = extensionTabs.find((item) => item.id === tab);
 
   if (personal) {
-    return <PersonalDashboard apiUrl={apiUrl} clientApiUrl={clientApiUrl} />;
+    return <PersonalDashboard apiUrl={apiUrl} clientApiUrl={clientApiUrl} deploymentMode={deploymentMode} />;
   }
 
   return (
