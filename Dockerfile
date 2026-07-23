@@ -1,12 +1,12 @@
 FROM node:22-alpine@sha256:16e22a550f3863206a3f701448c45f7912c6896a62de43add43bb9c86130c3e2 AS builder
 WORKDIR /app
 RUN apk add --no-cache git
-ARG OPENLEASH_SHARED_REF=e50b233c25e600aac99488d9a7103063f7d99553
+ARG OPENLEASH_SHARED_REF=9b7ca332b01b99b23f5b5c2337ea60db9e4b77cd
 RUN git clone https://github.com/open-leash/shared.git packages/shared \
     && git -C packages/shared checkout --detach "$OPENLEASH_SHARED_REF"
 COPY . apps/dashboard-web
 RUN printf '%s\n' \
-  '{"private":true,"type":"module","workspaces":["packages/*","apps/*"]}' \
+  '{"private":true,"type":"module","workspaces":["packages/*","apps/*"],"overrides":{"sharp":"0.35.3"}}' \
   > package.json
 RUN npm install --workspace @openleash/shared --workspace @openleash/dashboard-web
 ENV NEXT_TELEMETRY_DISABLED=1
