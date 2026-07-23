@@ -27,6 +27,7 @@ import {
   X
 } from "lucide-react";
 import { DashboardSignOutIconButton } from "./DashboardAuth";
+import { canonicalPluginSlug } from "../lib/plugin-slug";
 import { apiVersionHeaders } from "@openleash/shared";
 
 type PersonalOutcome = {
@@ -1255,7 +1256,7 @@ function pluginStatusLabel(plugin: PersonalPlugin) {
 }
 
 function pluginPackageName(plugin: PersonalPlugin) {
-  return plugin.packageId || plugin.slug || plugin.marketplace?.slug || plugin.name || plugin.displayName || plugin.id.split(".").pop() || plugin.id;
+  return canonicalPluginSlug(plugin.packageId || plugin.slug || plugin.marketplace?.slug || plugin.name || plugin.displayName || plugin.id);
 }
 
 function pluginDescription(plugin: PersonalPlugin) {

@@ -44,6 +44,7 @@ import { DashboardSettingsPane, SettingsTree, TokensSettingsPanel } from "./Dash
 import { AgentInventory, type AgentInventoryCard } from "./AgentInventory";
 import { UserRoster, type UserRosterItem } from "./UserRoster";
 import { PersonalDashboard } from "./PersonalDashboard";
+import { canonicalPluginSlug } from "../lib/plugin-slug";
 
 export type Overview = {
   metrics: {
@@ -3484,19 +3485,11 @@ function signalToOutcomeView(signal: SecurityData["signals"][number]): NonNullab
 }
 
 function outcomeSourceLabel(pluginId: string | undefined | null) {
-  const value = String(pluginId ?? "").trim();
-  if (value === "openleash.security-evaluator") return "Security Evaluation";
-  if (value === "openleash.dlp") return "Data Protection";
-  if (value === "openleash.mcp-scanner") return "MCP and Tool Risk";
-  if (value === "openleash.skill-scanner") return "Skill Review";
-  if (value === "openleash.prompt-compression") return "token-saver";
-  return pluginName(value);
+  return pluginName(pluginId);
 }
 
 function pluginName(pluginId: string | undefined | null) {
-  const value = String(pluginId ?? "").trim();
-  if (!value) return "openleash";
-  return value.replace(/^openleash\./, "").replace("prompt-compression", "token-saver").replace("dlp", "data-leakage-prevention");
+  return canonicalPluginSlug(pluginId, "openleash");
 }
 
 function providerName(value: string | undefined | null) {

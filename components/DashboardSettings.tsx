@@ -11,6 +11,7 @@ import { IdentityProviderSetup, type OnboardingData } from "./EnterpriseOnboardi
 import { OrganizationSetupPanel } from "./OrganizationSetupPanel";
 import { DashboardRoleSettings } from "./DashboardRoleSettings";
 import { apiFetch } from "../lib/api-client";
+import { canonicalPluginSlug } from "../lib/plugin-slug";
 
 export type SettingsItem = "organization" | "identity" | "roles" | "tokens" | "providers" | "plugins" | "deploy";
 
@@ -142,13 +143,13 @@ function PluginSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: string; org
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setMessage(body.error || `Could not save ${plugin.name}.`);
+        setMessage(body.error || `Could not save ${pluginSlug(plugin)}.`);
         return;
       }
       setPlugins((items) => items.map((item) => item.id === plugin.id ? { ...item, settings: { ...nextSettings, ...body.settings } } : item));
-      setMessage(`${plugin.name} settings saved.`);
+      setMessage(`${pluginSlug(plugin)} settings saved.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : `Could not save ${plugin.name}.`);
+      setMessage(error instanceof Error ? error.message : `Could not save ${pluginSlug(plugin)}.`);
     } finally {
       setSavingId("");
     }
@@ -203,13 +204,13 @@ function PluginSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: string; org
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setMessage(body.error || `Could not save ${plugin.name} policy.`);
+        setMessage(body.error || `Could not save ${pluginSlug(plugin)} policy.`);
         return;
       }
       setPlugins((items) => items.map((item) => item.id === plugin.id ? { ...item, organizationPolicy: body.policy ?? nextPolicy } : item));
-      setMessage(`${plugin.name} policy saved.`);
+      setMessage(`${pluginSlug(plugin)} policy saved.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : `Could not save ${plugin.name} policy.`);
+      setMessage(error instanceof Error ? error.message : `Could not save ${pluginSlug(plugin)} policy.`);
     } finally {
       setSavingId("");
     }
@@ -263,7 +264,7 @@ function PluginSettingsPanel({ apiUrl, organizationSlug }: { apiUrl: string; org
             <section className="transformPanel" key={plugin.id}>
               <div className="transformPanelHead">
                 <div>
-                  <h2>{plugin.name}</h2>
+                  <h2>{pluginSlug(plugin)}</h2>
                   <p>{plugin.marketplace?.shortDescription ?? plugin.description}</p>
                   <p className="setupCopy compact">By {plugin.marketplace?.developerName ?? plugin.publisher} · {plugin.slug ?? plugin.id}</p>
                   {plugin.settings.runtimeError ? <p className="setupCopy compact">{plugin.settings.runtimeError}</p> : null}
@@ -800,6 +801,11 @@ function pluginRepositoryUrl(plugin: PluginCatalogItem) {
   const isFirstParty = plugin.publisher === "openleash" || plugin.id.startsWith("openleash.");
   if (isFirstParty && firstPartyPluginRepositories[slug]) return firstPartyPluginRepositories[slug];
   return cleanPluginRepositoryUrl(plugin.repositoryUrl || plugin.marketplace?.repositoryUrl) || "";
+}
+
+function pluginSlug(plugin: PluginCatalogItem) {
+  const value = plugin.slug || plugin.marketplace?.slug || plugin.name || plugin.id;
+  return canonicalPluginSlug(value);
 }
 
 function cleanPluginRepositoryUrl(repositoryUrl?: string) {
