@@ -56,7 +56,7 @@ jobs:
           load: true
           tags: openleash/dashboard-web:scan
       - name: Scan release image
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: openleash/dashboard-web:scan
           scanners: vuln
@@ -72,4 +72,3 @@ jobs:
           provenance: mode=max
           sbom: true
           tags: ghcr.io/open-leash/dashboard-web:${{ steps.version.outputs.value }}
-
